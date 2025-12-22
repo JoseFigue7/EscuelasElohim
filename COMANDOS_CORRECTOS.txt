@@ -1,0 +1,114 @@
+═══════════════════════════════════════════════════════════════
+  COMANDOS CORRECTOS PARA EL PROYECTO ELOHIM COBAN
+═══════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANTE: El comando es "manage.py" NO "magane.py"
+
+═══════════════════════════════════════════════════════════════
+PASO 1: Activar el entorno virtual
+═══════════════════════════════════════════════════════════════
+
+cd backend
+source venv/bin/activate
+
+# Deberías ver (venv) al inicio de tu línea de comando
+
+
+═══════════════════════════════════════════════════════════════
+PASO 2: Instalar dependencias (si no lo has hecho)
+═══════════════════════════════════════════════════════════════
+
+pip install -r requirements.txt
+
+
+═══════════════════════════════════════════════════════════════
+PASO 3: Iniciar PostgreSQL (desde la raíz del proyecto)
+═══════════════════════════════════════════════════════════════
+
+cd ..  # Volver a la raíz
+docker-compose up -d
+
+
+═══════════════════════════════════════════════════════════════
+PASO 4: Crear migraciones
+═══════════════════════════════════════════════════════════════
+
+cd backend
+python manage.py makemigrations cursos usuarios
+
+# O si prefieres hacerlo para todas las apps:
+python manage.py makemigrations
+
+
+═══════════════════════════════════════════════════════════════
+PASO 5: Aplicar migraciones
+═══════════════════════════════════════════════════════════════
+
+python manage.py migrate
+
+# ✅ NOTA: El comando es "manage.py" NO "magane.py"
+
+
+═══════════════════════════════════════════════════════════════
+PASO 6: Crear superusuario
+═══════════════════════════════════════════════════════════════
+
+python manage.py createsuperuser
+
+
+═══════════════════════════════════════════════════════════════
+PASO 7: Cargar datos iniciales (los 3 cursos)
+═══════════════════════════════════════════════════════════════
+
+python manage.py load_initial_data
+
+
+═══════════════════════════════════════════════════════════════
+PASO 8: Iniciar servidor Django
+═══════════════════════════════════════════════════════════════
+
+python manage.py runserver
+
+# El servidor estará en http://localhost:8000
+
+
+═══════════════════════════════════════════════════════════════
+COMANDOS ÚTILES DE VERIFICACIÓN
+═══════════════════════════════════════════════════════════════
+
+# Ver versión de Django
+python manage.py --version
+
+# Ver qué apps tienen cambios pendientes
+python manage.py makemigrations --dry-run
+
+# Ver estado de las migraciones
+python manage.py showmigrations
+
+# Listar todas las tablas en la base de datos
+python manage.py dbshell
+# Luego dentro del shell de PostgreSQL:
+# \dt
+
+
+═══════════════════════════════════════════════════════════════
+ERRORES COMUNES Y SOLUCIONES
+═══════════════════════════════════════════════════════════════
+
+1. "ModuleNotFoundError: No module named 'django'"
+   → Activa el venv: source venv/bin/activate
+   → Instala dependencias: pip install -r requirements.txt
+
+2. "No changes detected"
+   → Especifica las apps: python manage.py makemigrations cursos usuarios
+
+3. Error de conexión a PostgreSQL
+   → Verifica que Docker esté corriendo: docker ps
+   → Inicia PostgreSQL: docker-compose up -d
+
+4. Typo común: "magane.py" → El comando correcto es "manage.py"
+
+
+═══════════════════════════════════════════════════════════════
+
+

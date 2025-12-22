@@ -1,0 +1,182 @@
+/* Calificaciones - Diseño Ultra Profesional */
+.calificaciones {
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeIn var(--transition-slow) ease-out;
+}
+
+.calificaciones h1 {
+  color: var(--text-primary);
+  margin-bottom: 40px;
+  font-size: 2.5rem;
+  font-weight: 800;
+  padding-bottom: 20px;
+  border-bottom: 3px solid var(--primary-color);
+  letter-spacing: -0.03em;
+}
+
+.calificaciones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.calificacion-card {
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.calificacion-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  transition: width var(--transition-base);
+}
+
+.calificacion-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.calificacion-card.aprobado {
+  border-color: var(--success-color);
+  background: linear-gradient(to right, var(--bg-primary) 0%, #f0fdf4 100%);
+}
+
+.calificacion-card.aprobado::before {
+  background: var(--success-color);
+  width: 5px;
+}
+
+.calificacion-card.regular {
+  border-color: var(--warning-color);
+  background: linear-gradient(to right, var(--bg-primary) 0%, #fffbeb 100%);
+}
+
+.calificacion-card.regular::before {
+  background: var(--warning-color);
+  width: 5px;
+}
+
+.calificacion-card.reprobado {
+  border-color: var(--danger-color);
+  background: linear-gradient(to right, var(--bg-primary) 0%, #fef2f2 100%);
+}
+
+.calificacion-card.reprobado::before {
+  background: var(--danger-color);
+  width: 5px;
+}
+
+.calificacion-card h3 {
+  color: var(--text-primary);
+  margin-bottom: 28px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.calificacion-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.calificacion-details .puntaje,
+.calificacion-details .porcentaje,
+.calificacion-details .fecha {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.label {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.value {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.porcentaje .value.aprobado {
+  color: var(--success-color);
+}
+
+.porcentaje .value.regular {
+  color: var(--warning-color);
+}
+
+.porcentaje .value.reprobado {
+  color: var(--danger-color);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 24px;
+  letter-spacing: 0.3px;
+}
+
+.status-badge.aprobado {
+  background: var(--success-light);
+  color: #065f46;
+}
+
+.status-badge.reprobado {
+  background: var(--danger-light);
+  color: #991b1b;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 80px 32px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-2xl);
+  border: 2px dashed var(--border-color);
+  margin-top: 32px;
+}
+
+.empty-state p {
+  color: var(--text-tertiary);
+  font-size: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .calificaciones h1 {
+    font-size: 2rem;
+  }
+  
+  .calificacion-details {
+    grid-template-columns: 1fr;
+  }
+  
+  .calificacion-card {
+    padding: 24px;
+  }
+}

@@ -1,0 +1,586 @@
+/* Gestionar Promoción - Diseño Ultra Profesional */
+.gestionar-promocion {
+  max-width: 1600px;
+  margin: 0 auto;
+  animation: fadeIn var(--transition-slow) ease-out;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 10px 18px;
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.back-link:hover {
+  background: var(--gray-50);
+  transform: translateX(-4px);
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-light);
+}
+
+.gestionar-promocion h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.03em;
+}
+
+/* Header de Promoción */
+.promocion-header-section {
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #3b82f6 100%);
+  border-radius: var(--radius-2xl);
+  padding: 40px 48px;
+  margin-bottom: 32px;
+  color: white;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.promocion-header-section h1 {
+  color: white;
+  margin: 0 0 16px 0;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.promocion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.promocion-info .badge {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+  padding: 8px 16px;
+}
+
+.promocion-info .badge.active {
+  background: rgba(16, 185, 129, 0.9);
+  border-color: rgba(16, 185, 129, 1);
+}
+
+.promocion-info .badge.inactive {
+  background: rgba(239, 68, 68, 0.9);
+  border-color: rgba(239, 68, 68, 1);
+}
+
+.promocion-fechas {
+  font-size: 15px;
+  opacity: 0.95;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.promocion-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.promocion-actions .btn-primary,
+.promocion-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--primary-color);
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-lg);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
+}
+
+.promocion-actions .btn-primary:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.promocion-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
+}
+
+.promocion-actions .btn-secondary:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Formulario de Edición de Promoción */
+.section-card {
+  background: var(--bg-primary);
+  border-radius: var(--radius-2xl);
+  padding: 40px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  animation: slideUp var(--transition-slow) ease-out;
+}
+
+.promocion-edit-form {
+  margin-top: 24px;
+}
+
+.promocion-edit-form .form-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 2px solid var(--border-color-light);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 40px 0;
+  background: var(--bg-primary);
+  padding: 8px;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs button {
+  background: transparent;
+  border: none;
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  position: relative;
+  font-family: inherit;
+}
+
+.tabs button:hover {
+  color: var(--primary-color);
+  background: var(--gray-50);
+}
+
+.tabs button.active {
+  color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+  font-weight: 700;
+}
+
+.tabs button.active::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+  border-radius: var(--radius-full);
+}
+
+.temas-section,
+.alumnos-section,
+.preguntas-section,
+.examenes-section,
+.promedios-section {
+  margin-top: 32px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-2xl);
+  padding: 40px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  animation: slideUp var(--transition-slow) ease-out;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--border-color-light);
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.new-form {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow-sm);
+  animation: slideUp var(--transition-slow) ease-out;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: 15px;
+  font-family: inherit;
+  transition: all var(--transition-base);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+}
+
+.temas-list,
+.alumnos-list,
+.preguntas-list,
+.examenes-list {
+  margin-top: 28px;
+}
+
+.tema-item,
+.alumno-item,
+.pregunta-item,
+.examen-item {
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 24px 28px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all var(--transition-base);
+  text-decoration: none;
+  color: inherit;
+}
+
+.tema-item:hover,
+.alumno-item:hover,
+.pregunta-item:hover,
+.examen-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-light);
+  text-decoration: none;
+}
+
+.tema-item h3,
+.alumno-item h3,
+.pregunta-item h4,
+.examen-item h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.tema-item span,
+.alumno-item span {
+  font-size: 20px;
+  color: var(--primary-color);
+  font-weight: bold;
+  transition: transform var(--transition-base);
+}
+
+.tema-item:hover span {
+  transform: translateX(4px);
+}
+
+.badge {
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge.active {
+  background: var(--success-light);
+  color: #065f46;
+}
+
+.badge.inactive {
+  background: var(--danger-light);
+  color: #991b1b;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 32px;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  margin-top: 24px;
+  border: 2px dashed var(--border-color);
+}
+
+.empty-state p {
+  color: var(--text-tertiary);
+  font-size: 15px;
+  margin-top: 8px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.info-text {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  padding: 24px 28px;
+  border-radius: var(--radius-xl);
+  color: #1e40af;
+  margin-top: 28px;
+  line-height: 1.7;
+  border-left: 4px solid var(--primary-color);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: var(--radius-lg);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+  background: var(--gray-100);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 12px 24px;
+  border-radius: var(--radius-lg);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all var(--transition-base);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--gray-200);
+  border-color: var(--border-color-dark);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.btn-close {
+  background: var(--gray-100);
+  border: none;
+  font-size: 28px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-base);
+}
+
+.btn-close:hover {
+  background: var(--gray-200);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.btn-edit,
+.btn-delete {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.btn-edit {
+  background: var(--info-color);
+  color: white;
+}
+
+.btn-edit:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-delete {
+  background: var(--danger-color);
+  color: white;
+}
+
+.btn-delete:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
+
+@media (max-width: 1024px) {
+  .gestionar-promocion h1 {
+    font-size: 2rem;
+  }
+  
+  .section-header h2 {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .gestionar-promocion {
+    padding: 0;
+  }
+  
+  .gestionar-promocion h1 {
+    font-size: 1.75rem;
+  }
+  
+  .promocion-header-section {
+    flex-direction: column;
+    padding: 32px 28px;
+  }
+  
+  .promocion-actions {
+    width: 100%;
+  }
+  
+  .promocion-actions button {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .tabs {
+    margin: 32px -20px;
+    padding: 6px;
+    border-radius: var(--radius-lg);
+  }
+  
+  .tabs button {
+    padding: 12px 18px;
+    font-size: 14px;
+  }
+  
+  .temas-section,
+  .alumnos-section,
+  .preguntas-section,
+  .examenes-section,
+  .promedios-section {
+    padding: 28px 24px;
+    border-radius: var(--radius-xl);
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .tema-item,
+  .alumno-item,
+  .pregunta-item,
+  .examen-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+}

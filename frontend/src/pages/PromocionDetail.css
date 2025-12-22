@@ -1,0 +1,221 @@
+/* Promoción Detail - Diseño Ultra Profesional */
+.promocion-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeIn var(--transition-slow) ease-out;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 12px 20px;
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.back-link:hover {
+  background: var(--gray-50);
+  transform: translateX(-4px);
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-light);
+}
+
+.promocion-detail h1 {
+  color: var(--text-primary);
+  margin-bottom: 40px;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.temas-list {
+  margin-top: 32px;
+}
+
+.tema-item {
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  margin-bottom: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+.tema-item:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-light);
+  transform: translateY(-2px);
+}
+
+.tema-header {
+  padding: 28px 32px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #f0f9ff 0%, #fef3f2 100%);
+  transition: all var(--transition-base);
+}
+
+.tema-header:hover {
+  background: linear-gradient(135deg, #e0f2fe 0%, #fee2e2 100%);
+}
+
+.tema-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.toggle-icon {
+  font-size: 1.25rem;
+  color: var(--primary-color);
+  font-weight: bold;
+  transition: transform var(--transition-base);
+}
+
+.tema-item.active .toggle-icon {
+  transform: rotate(180deg);
+}
+
+.tema-content {
+  padding: 32px;
+  border-top: 2px solid var(--border-color-light);
+  background: var(--bg-primary);
+  animation: slideDown var(--transition-base) ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
+}
+
+.descripcion {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+.fecha {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  margin-bottom: 28px;
+  font-weight: 500;
+  padding: 10px 16px;
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  display: inline-block;
+}
+
+.materiales {
+  margin: 28px 0;
+}
+
+.materiales h4 {
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.materiales ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.material-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-base);
+}
+
+.material-item:hover {
+  background: var(--gray-50);
+  border-color: var(--primary-light);
+  transform: translateX(4px);
+}
+
+.material-item span {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.btn-download {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-download:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.no-materiales {
+  color: var(--text-tertiary);
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 768px) {
+  .promocion-detail h1 {
+    font-size: 2rem;
+  }
+  
+  .tema-header {
+    padding: 20px 24px;
+  }
+  
+  .tema-content {
+    padding: 24px;
+  }
+  
+  .material-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .btn-download {
+    width: 100%;
+  }
+}
