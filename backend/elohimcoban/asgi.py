@@ -16,3 +16,4 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'elohimcoban.settings')
 application = get_asgi_application()
 
 
+

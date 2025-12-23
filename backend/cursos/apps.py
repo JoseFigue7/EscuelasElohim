@@ -6,3 +6,4 @@ class CursosConfig(AppConfig):
     name = 'cursos'
 
 
+

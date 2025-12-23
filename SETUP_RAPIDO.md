@@ -98,3 +98,4 @@ Si ves "No changes detected" al hacer makemigrations:
 3. Verifica las credenciales en .env
 
 
+

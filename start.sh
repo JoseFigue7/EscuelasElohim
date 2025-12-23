@@ -64,3 +64,4 @@ echo "⚛️  Para iniciar el frontend, ejecuta en otra terminal:"
 echo "   cd frontend && npm install && npm start"
 
 
+
