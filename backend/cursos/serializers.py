@@ -67,13 +67,16 @@ class InscripcionSerializer(serializers.ModelSerializer):
 
 
 class AsistenciaSerializer(serializers.ModelSerializer):
-    alumno_nombre = serializers.CharField(source='inscripcion.alumno.get_full_name', read_only=True)
+    alumno_nombre = serializers.SerializerMethodField()
     tema_titulo = serializers.CharField(source='tema.titulo', read_only=True)
     
     class Meta:
         model = Asistencia
         fields = '__all__'
         read_only_fields = ['fecha_registro', 'fecha_actualizacion']
+    
+    def get_alumno_nombre(self, obj):
+        return f"{obj.inscripcion.alumno.get_full_name() or obj.inscripcion.alumno.username}"
 
 
 class PreguntaSerializer(serializers.ModelSerializer):
@@ -151,6 +154,70 @@ class RecuperacionExamenSerializer(serializers.ModelSerializer):
         return data
 
 
+class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
+    """Serializer para crear múltiples recuperaciones a la vez"""
+    from .models import Examen, Inscripcion
+    
+    examen = serializers.PrimaryKeyRelatedField(queryset=Examen.objects.all())
+    inscripciones = serializers.ListField(
+        child=serializers.PrimaryKeyRelatedField(queryset=Inscripcion.objects.all()),
+        min_length=1,
+        help_text='Lista de IDs de inscripciones'
+    )
+    fecha_inicio = serializers.DateTimeField()
+    fecha_fin = serializers.DateTimeField()
+    activa = serializers.BooleanField(default=True)
+    
+    def validate_inscripciones(self, value):
+        """Validar que las inscripciones sean válidas y únicas"""
+        if not value:
+            raise serializers.ValidationError("Debe seleccionar al menos una inscripción")
+        # Eliminar duplicados manteniendo el orden
+        seen = set()
+        unique_value = []
+        for item in value:
+            item_id = item.id if hasattr(item, 'id') else item
+            if item_id not in seen:
+                seen.add(item_id)
+                unique_value.append(item)
+        value = unique_value
+        # Verificar que todas las inscripciones pertenezcan al mismo curso
+        if len(value) > 1:
+            # value ya contiene objetos Inscripcion
+            cursos = set(insc.promocion.curso_id for insc in value)
+            if len(cursos) > 1:
+                raise serializers.ValidationError("Todas las inscripciones deben ser del mismo curso")
+        return value
+    
+    def validate(self, attrs):
+        """Validar que las fechas sean correctas"""
+        if attrs['fecha_inicio'] >= attrs['fecha_fin']:
+            raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
+        return attrs
+    
+    def create(self, validated_data):
+        """Crear múltiples recuperaciones"""
+        from .models import RecuperacionExamen
+        examen = validated_data['examen']
+        inscripciones = validated_data['inscripciones']
+        fecha_inicio = validated_data['fecha_inicio']
+        fecha_fin = validated_data['fecha_fin']
+        activa = validated_data.get('activa', True)
+        
+        recuperaciones = []
+        for inscripcion in inscripciones:
+            recuperacion = RecuperacionExamen.objects.create(
+                examen=examen,
+                inscripcion=inscripcion,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                activa=activa
+            )
+            recuperaciones.append(recuperacion)
+        
+        return recuperaciones
+
+
 class CalificacionExamenSerializer(serializers.ModelSerializer):
     examen_titulo = serializers.CharField(source='examen.titulo', read_only=True)
     alumno_nombre = serializers.SerializerMethodField()
@@ -171,7 +238,7 @@ class CalificacionExamenSerializer(serializers.ModelSerializer):
 
 
 class PromedioPromocionSerializer(serializers.ModelSerializer):
-    alumno_nombre = serializers.CharField(source='inscripcion.alumno.get_full_name', read_only=True)
+    alumno_nombre = serializers.SerializerMethodField()
     promocion_nombre = serializers.CharField(source='inscripcion.promocion.nombre', read_only=True)
     curso_nombre = serializers.CharField(source='inscripcion.promocion.curso.nombre', read_only=True)
     
@@ -179,10 +246,13 @@ class PromedioPromocionSerializer(serializers.ModelSerializer):
         model = PromedioPromocion
         fields = '__all__'
         read_only_fields = ['promedio_final', 'aprobado', 'fecha_calculo']
+    
+    def get_alumno_nombre(self, obj):
+        return f"{obj.inscripcion.alumno.get_full_name() or obj.inscripcion.alumno.username}"
 
 
 class DiplomaSerializer(serializers.ModelSerializer):
-    alumno_nombre = serializers.CharField(source='inscripcion.alumno.get_full_name', read_only=True)
+    alumno_nombre = serializers.SerializerMethodField()
     promocion_nombre = serializers.CharField(source='inscripcion.promocion.nombre', read_only=True)
     curso_nombre = serializers.CharField(source='inscripcion.promocion.curso.nombre', read_only=True)
     
@@ -190,3 +260,6 @@ class DiplomaSerializer(serializers.ModelSerializer):
         model = Diploma
         fields = '__all__'
         read_only_fields = ['codigo_diploma', 'fecha_emision']
+    
+    def get_alumno_nombre(self, obj):
+        return f"{obj.inscripcion.alumno.get_full_name() or obj.inscripcion.alumno.username}"

@@ -16,18 +16,24 @@ const TemaExamenes = () => {
   const loadExamenes = async () => {
     try {
       setLoading(true);
-      const response = await examenService.getAll(id);
-      setExamenes(response.data.results || response.data);
       setError('');
+      const response = await examenService.getAll(id);
+      
+      // Asegurar que siempre sea un array
+      const examenesData = response?.data?.results || response?.data || [];
+      setExamenes(Array.isArray(examenesData) ? examenesData : []);
     } catch (err) {
-      setError('Error al cargar los exámenes');
-      console.error(err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al cargar los exámenes';
+      setError(errorMessage);
+      setExamenes([]); // Asegurar que sea un array vacío en caso de error
+      console.error('Error al cargar exámenes:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const isExamenDisponible = (examen) => {
+    if (!examen || typeof examen !== 'object') return false;
     if (!examen.activo) return false;
     const now = new Date();
     if (examen.fecha_inicio && new Date(examen.fecha_inicio) > now) return false;
@@ -49,11 +55,12 @@ const TemaExamenes = () => {
       <h1>Exámenes</h1>
 
       <div className="examenes-list">
-        {examenes.map((examen) => {
+        {Array.isArray(examenes) && examenes.map((examen) => {
+          if (!examen || !examen.id) return null;
           const disponible = isExamenDisponible(examen);
           return (
             <div key={examen.id} className={`examen-card ${!disponible ? 'disabled' : ''}`}>
-              <h3>{examen.titulo}</h3>
+              <h3>{examen.titulo || 'Sin título'}</h3>
               {examen.descripcion && <p>{examen.descripcion}</p>}
               
               <div className="examen-info">

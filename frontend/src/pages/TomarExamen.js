@@ -7,6 +7,7 @@ const TomarExamen = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [examen, setExamen] = useState(null);
+  const [preguntas, setPreguntas] = useState([]);
   const [respuestas, setRespuestas] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -19,18 +20,54 @@ const TomarExamen = () => {
   const loadExamen = async () => {
     try {
       setLoading(true);
-      const response = await examenService.getById(id);
-      setExamen(response.data);
-      // Inicializar respuestas vacías
-      const initialRespuestas = {};
-      response.data.preguntas.forEach((pregunta) => {
-        initialRespuestas[pregunta.id] = '';
-      });
-      setRespuestas(initialRespuestas);
       setError('');
+      
+      // Cargar datos del examen y preguntas en paralelo
+      const [examenResponse, preguntasResponse] = await Promise.all([
+        examenService.getById(id),
+        examenService.preguntas(id)
+      ]);
+      
+      setExamen(examenResponse.data);
+      
+      // Las preguntas vienen del endpoint separado
+      // Asegurarse de que siempre sea un array
+      let preguntasData = [];
+      if (preguntasResponse?.data) {
+        if (Array.isArray(preguntasResponse.data.preguntas)) {
+          preguntasData = preguntasResponse.data.preguntas;
+        } else if (Array.isArray(preguntasResponse.data)) {
+          preguntasData = preguntasResponse.data;
+        } else if (preguntasResponse.data.preguntas) {
+          // Si preguntas existe pero no es array, intentar convertirlo
+          preguntasData = Array.isArray(preguntasResponse.data.preguntas) 
+            ? preguntasResponse.data.preguntas 
+            : [];
+        }
+      }
+      
+      setPreguntas(preguntasData);
+      
+      // Inicializar respuestas vacías solo si hay preguntas
+      const initialRespuestas = {};
+      if (Array.isArray(preguntasData) && preguntasData.length > 0) {
+        preguntasData.forEach((pregunta) => {
+          if (pregunta && pregunta.id) {
+            initialRespuestas[pregunta.id] = '';
+          }
+        });
+      }
+      setRespuestas(initialRespuestas);
+      
+      if (preguntasData.length === 0) {
+        setError('No hay preguntas disponibles para este examen');
+      }
     } catch (err) {
-      setError('Error al cargar el examen');
-      console.error(err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al cargar el examen';
+      setError(errorMessage);
+      setPreguntas([]); // Asegurar que preguntas sea un array vacío en caso de error
+      setRespuestas({});
+      console.error('Error al cargar examen:', err);
     } finally {
       setLoading(false);
     }
@@ -47,8 +84,13 @@ const TomarExamen = () => {
     e.preventDefault();
 
     // Validar que todas las preguntas tengan respuesta
-    const preguntasSinRespuesta = examen.preguntas.filter(
-      (p) => !respuestas[p.id] || respuestas[p.id].trim() === ''
+    if (!Array.isArray(preguntas) || preguntas.length === 0) {
+      setError('No hay preguntas para responder');
+      return;
+    }
+
+    const preguntasSinRespuesta = preguntas.filter(
+      (p) => p && p.id && (!respuestas[p.id] || respuestas[p.id].trim() === '')
     );
 
     if (preguntasSinRespuesta.length > 0) {
@@ -66,10 +108,12 @@ const TomarExamen = () => {
 
     try {
       // Convertir respuestas al formato esperado
-      const respuestasArray = examen.preguntas.map((pregunta) => ({
-        pregunta_id: pregunta.id,
-        respuesta: respuestas[pregunta.id] || '',
-      }));
+      const respuestasArray = preguntas
+        .filter((pregunta) => pregunta && pregunta.id)
+        .map((pregunta) => ({
+          pregunta_id: pregunta.id,
+          respuesta: respuestas[pregunta.id] || '',
+        }));
 
       await examenService.responder(id, respuestasArray);
       navigate('/calificaciones', { state: { examenId: id } });
@@ -93,6 +137,16 @@ const TomarExamen = () => {
     return <div className="error">Examen no encontrado</div>;
   }
 
+  if (!preguntas || preguntas.length === 0) {
+    return (
+      <div className="tomar-examen">
+        <h1>{examen.titulo}</h1>
+        {error && <div className="error-message">{error}</div>}
+        <div className="error">No hay preguntas disponibles para este examen</div>
+      </div>
+    );
+  }
+
   return (
     <div className="tomar-examen">
       <h1>{examen.titulo}</h1>
@@ -101,7 +155,9 @@ const TomarExamen = () => {
       {error && <div className="error-message">{error}</div>}
 
       <form onSubmit={handleSubmit}>
-        {examen.preguntas.map((pregunta, index) => (
+        {Array.isArray(preguntas) && preguntas.length > 0 && preguntas.map((pregunta, index) => {
+          if (!pregunta || !pregunta.id) return null;
+          return (
           <div key={pregunta.id} className="pregunta-card">
             <h3>
               Pregunta {index + 1} ({pregunta.puntos} punto{pregunta.puntos !== 1 ? 's' : ''})
@@ -196,7 +252,8 @@ const TomarExamen = () => {
               />
             )}
           </div>
-        ))}
+          );
+        })}
 
         <div className="examen-actions">
           <button

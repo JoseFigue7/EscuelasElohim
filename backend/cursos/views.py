@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from decimal import Decimal
 
 from .models import (
     Curso, Promocion, Tema, Material, Inscripcion, 
@@ -13,8 +14,8 @@ from .models import (
 from .serializers import (
     CursoSerializer, PromocionSerializer, TemaSerializer, TemaListSerializer,
     MaterialSerializer, InscripcionSerializer, AsistenciaSerializer,
-    PreguntaSerializer, ExamenSerializer, ExamenListSerializer,
-    RespuestaExamenSerializer, RecuperacionExamenSerializer,
+    PreguntaSerializer, PreguntaDetailSerializer, ExamenSerializer, ExamenListSerializer,
+    RespuestaExamenSerializer, RecuperacionExamenSerializer, RecuperacionExamenBulkCreateSerializer,
     CalificacionExamenSerializer, PromedioPromocionSerializer, DiplomaSerializer
 )
 
@@ -175,6 +176,8 @@ class ExamenViewSet(viewsets.ModelViewSet):
         return ExamenSerializer
     
     def get_queryset(self):
+        from django.utils import timezone
+        
         user = self.request.user
         queryset = super().get_queryset()
         
@@ -185,6 +188,20 @@ class ExamenViewSet(viewsets.ModelViewSet):
             ).select_related('promocion__curso')
             curso_ids = [insc.promocion.curso_id for insc in inscripciones]
             queryset = queryset.filter(tema__curso_id__in=curso_ids, activo=True)
+            
+            # Si no se está filtrando por tema específico, solo mostrar exámenes disponibles ahora
+            tema_id = self.request.query_params.get('tema')
+            if not tema_id:
+                ahora = timezone.now()
+                # Filtrar exámenes que estén disponibles en este momento
+                # Debe estar activo Y (no tener fecha_inicio O fecha_inicio <= ahora) Y (no tener fecha_fin O fecha_fin >= ahora)
+                queryset = queryset.filter(
+                    activo=True
+                ).filter(
+                    Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=ahora)
+                ).filter(
+                    Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora)
+                )
         
         # Filtrar por tema si se proporciona
         tema_id = self.request.query_params.get('tema')
@@ -285,19 +302,7 @@ class ExamenViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        from .serializers import PreguntaDetailSerializer
         serializer = PreguntaDetailSerializer(preguntas, many=True)
-        
-        # Verificar si hay una recuperación activa
-        recuperacion_id = request.query_params.get('recuperacion_id')
-        recuperacion = None
-        if recuperacion_id:
-            recuperacion = RecuperacionExamen.objects.filter(
-                id=recuperacion_id,
-                examen=examen,
-                inscripcion=inscripcion,
-                activa=True
-            ).first()
         
         return Response({
             'examen_id': examen.id,
@@ -415,7 +420,6 @@ class ExamenViewSet(viewsets.ModelViewSet):
             )
         
         # Calcular calificación final
-        from decimal import Decimal
         calificacion = CalificacionExamen.objects.create(
             examen=examen,
             inscripcion=inscripcion,
@@ -459,6 +463,14 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
         
         return queryset
     
+    def get_serializer_class(self):
+        """Usar el serializer de creación múltiple si se envía una lista de inscripciones"""
+        if self.action == 'create' and 'inscripciones' in self.request.data:
+            # Si viene una lista de inscripciones, usar el serializer de creación múltiple
+            if isinstance(self.request.data.get('inscripciones'), list):
+                return RecuperacionExamenBulkCreateSerializer
+        return RecuperacionExamenSerializer
+    
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             # Solo docentes/admin pueden crear/editar recuperaciones
@@ -466,8 +478,33 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return [IsAuthenticated()]
     
+    def create(self, request, *args, **kwargs):
+        """Crear recuperación(es) - soporta creación individual o múltiple"""
+        user = request.user
+        if not (user.es_docente or user.is_superuser):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Solo los docentes pueden crear recuperaciones')
+        
+        # Detectar si es creación múltiple
+        if 'inscripciones' in request.data and isinstance(request.data.get('inscripciones'), list):
+            # Creación múltiple
+            serializer = RecuperacionExamenBulkCreateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            recuperaciones = serializer.save()
+            
+            # Retornar las recuperaciones creadas
+            response_serializer = RecuperacionExamenSerializer(recuperaciones, many=True)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            # Creación individual (compatibilidad hacia atrás)
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
     def perform_create(self, serializer):
-        """Al crear una recuperación, validar que el usuario sea docente/admin"""
+        """Al crear una recuperación individual, validar que el usuario sea docente/admin"""
         user = self.request.user
         if not (user.es_docente or user.is_superuser):
             from rest_framework.exceptions import PermissionDenied

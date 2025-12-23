@@ -24,7 +24,7 @@ const TemaDetail = () => {
     archivo: null,
   });
   const [recuperacionForm, setRecuperacionForm] = useState({
-    inscripcion_id: '',
+    inscripciones: [], // Array de IDs de inscripciones seleccionadas
     fecha_inicio: '',
     fecha_fin: '',
   });
@@ -153,22 +153,41 @@ const TemaDetail = () => {
       return;
     }
     
+    if (recuperacionForm.inscripciones.length === 0) {
+      alert('Debe seleccionar al menos un estudiante');
+      return;
+    }
+    
     try {
       await recuperacionService.create({
         examen: examen.id,
-        inscripcion: recuperacionForm.inscripcion_id,
+        inscripciones: recuperacionForm.inscripciones, // Enviar array de inscripciones
         fecha_inicio: recuperacionForm.fecha_inicio,
         fecha_fin: recuperacionForm.fecha_fin,
         activa: true,
       });
       
       setShowRecuperacionForm(false);
-      setRecuperacionForm({ inscripcion_id: '', fecha_inicio: '', fecha_fin: '' });
+      setRecuperacionForm({ inscripciones: [], fecha_inicio: '', fecha_fin: '' });
       loadData();
-      alert('Recuperación creada correctamente');
+      const count = recuperacionForm.inscripciones.length;
+      alert(`${count} recuperación${count > 1 ? 'es' : ''} creada${count > 1 ? 's' : ''} correctamente`);
     } catch (err) {
-      alert('Error al crear recuperación: ' + (err.response?.data?.detail || err.message));
+      alert('Error al crear recuperación: ' + (err.response?.data?.detail || err.response?.data?.error || err.message));
     }
+  };
+  
+  const handleToggleInscripcion = (inscripcionId) => {
+    setRecuperacionForm(prev => {
+      const inscripciones = [...prev.inscripciones];
+      const index = inscripciones.indexOf(inscripcionId);
+      if (index > -1) {
+        inscripciones.splice(index, 1);
+      } else {
+        inscripciones.push(inscripcionId);
+      }
+      return { ...prev, inscripciones };
+    });
   };
 
   const handleDeleteRecuperacion = async (recuperacionId) => {
@@ -440,25 +459,107 @@ const TemaDetail = () => {
             {showRecuperacionForm && (
               <form onSubmit={handleCreateRecuperacion} className="material-form" style={{marginTop: '24px'}}>
                 <div className="form-group">
-                  <label>Seleccionar Estudiante *</label>
-                  <select
-                    value={recuperacionForm.inscripcion_id}
-                    onChange={(e) => setRecuperacionForm({ ...recuperacionForm, inscripcion_id: e.target.value })}
-                    required
-                  >
-                    <option value="">Seleccionar estudiante...</option>
-                    {inscripciones.map((inscripcion) => (
-                      <option key={inscripcion.id} value={inscripcion.id}>
-                        {inscripcion.alumno_nombre || inscripcion.alumno?.first_name || inscripcion.alumno?.username}
-                        {recuperacionesTotales[inscripcion.id] > 0 && 
-                          ` (${recuperacionesTotales[inscripcion.id]} recuperación${recuperacionesTotales[inscripcion.id] > 1 ? 'es' : ''} en total)`
-                        }
-                      </option>
-                    ))}
-                  </select>
-                  {recuperacionForm.inscripcion_id && recuperacionesTotales[recuperacionForm.inscripcion_id] > 0 && (
+                  <label>Seleccionar Estudiantes *</label>
+                  <div style={{
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    {inscripciones.length === 0 ? (
+                      <p style={{color: '#666', margin: 0}}>No hay estudiantes inscritos</p>
+                    ) : (
+                      <>
+                        <div style={{marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'center'}}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecuperacionForm(prev => ({
+                                ...prev,
+                                inscripciones: inscripciones.map(insc => insc.id)
+                              }));
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '14px',
+                              backgroundColor: '#f3f4f6',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Seleccionar todos
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecuperacionForm(prev => ({ ...prev, inscripciones: [] }));
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '14px',
+                              backgroundColor: '#f3f4f6',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Deseleccionar todos
+                          </button>
+                          <span style={{color: '#666', fontSize: '14px'}}>
+                            {recuperacionForm.inscripciones.length} seleccionado{recuperacionForm.inscripciones.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        {inscripciones.map((inscripcion) => {
+                          const isSelected = recuperacionForm.inscripciones.includes(inscripcion.id);
+                          const tieneRecuperaciones = recuperacionesTotales[inscripcion.id] > 0;
+                          return (
+                            <label
+                              key={inscripcion.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '10px',
+                                marginBottom: '8px',
+                                backgroundColor: isSelected ? '#eff6ff' : '#fff',
+                                border: isSelected ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleInscripcion(inscripcion.id)}
+                                style={{
+                                  marginRight: '12px',
+                                  width: '18px',
+                                  height: '18px',
+                                  cursor: 'pointer'
+                                }}
+                              />
+                              <div style={{flex: 1}}>
+                                <div style={{fontWeight: '500', color: '#111827'}}>
+                                  {inscripcion.alumno_nombre || inscripcion.alumno?.first_name || inscripcion.alumno?.username}
+                                </div>
+                                {tieneRecuperaciones && (
+                                  <small style={{color: '#dc2626', fontSize: '12px', display: 'block', marginTop: '4px'}}>
+                                    ⚠️ Ya tiene {recuperacionesTotales[inscripcion.id]} recuperación{recuperacionesTotales[inscripcion.id] > 1 ? 'es' : ''} en la promoción
+                                  </small>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                  {recuperacionForm.inscripciones.length === 0 && (
                     <small style={{color: '#dc2626', marginTop: '8px', display: 'block'}}>
-                      ⚠️ Este estudiante ya tiene {recuperacionesTotales[recuperacionForm.inscripcion_id]} recuperación(es) en la promoción.
+                      * Debe seleccionar al menos un estudiante
                     </small>
                   )}
                 </div>
