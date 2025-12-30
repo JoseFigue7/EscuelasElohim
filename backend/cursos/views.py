@@ -47,6 +47,14 @@ class PromocionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(docente=user)
         
         return queryset
+    
+    def perform_create(self, serializer):
+        """Asignar automáticamente el docente al usuario actual si es docente o admin"""
+        user = self.request.user
+        if user.es_docente or user.is_superuser:
+            serializer.save(docente=user)
+        else:
+            serializer.save()
 
 
 class TemaViewSet(viewsets.ModelViewSet):
@@ -110,6 +118,42 @@ class MaterialViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(tema_id=tema_id)
         
         return queryset
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Sobrescribir retrieve para servir el archivo con el tipo de contenido correcto"""
+        instance = self.get_object()
+        
+        # Si se solicita descargar el archivo (query param download=true)
+        if request.query_params.get('download') == 'true' and instance.archivo:
+            from django.http import FileResponse
+            import os
+            from mimetypes import guess_type
+            from urllib.parse import quote
+            
+            file_path = instance.archivo.path
+            if os.path.exists(file_path):
+                # Obtener el tipo de contenido basado en la extensión
+                content_type, _ = guess_type(file_path)
+                if not content_type:
+                    content_type = 'application/octet-stream'
+                
+                # Obtener el nombre del archivo original (sin la ruta)
+                filename = os.path.basename(instance.archivo.name)
+                
+                # Codificar el nombre del archivo para caracteres especiales
+                # Usar RFC 5987 encoding para nombres de archivo con caracteres especiales
+                filename_encoded = quote(filename, safe='')
+                
+                response = FileResponse(
+                    open(file_path, 'rb'),
+                    content_type=content_type
+                )
+                # Usar ambos formatos para máxima compatibilidad
+                response['Content-Disposition'] = f'attachment; filename="{filename}"; filename*=UTF-8\'\'{filename_encoded}'
+                return response
+        
+        # Comportamiento normal: devolver el serializer
+        return super().retrieve(request, *args, **kwargs)
 
 
 class InscripcionViewSet(viewsets.ModelViewSet):

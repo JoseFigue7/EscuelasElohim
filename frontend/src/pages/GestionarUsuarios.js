@@ -139,12 +139,12 @@ const GestionarUsuarios = () => {
 
   return (
     <div className="gestionar-usuarios">
-      <div className="page-header">
-        <div className="header-content">
+      <div className="header-actions">
+        <div>
           <h1>Gestión de Usuarios</h1>
-          <p className="page-subtitle">Administra los usuarios del sistema</p>
+          <p style={{margin: '8px 0 0 0', opacity: 0.95, fontSize: '1rem'}}>Administra los usuarios del sistema</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary btn-large">
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary btn-large" style={{background: 'white', color: '#667eea'}}>
           <span className="btn-icon">+</span>
           {showForm ? 'Cancelar' : 'Nuevo Usuario'}
         </button>

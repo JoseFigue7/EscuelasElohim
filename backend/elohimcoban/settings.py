@@ -152,6 +152,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_EXPOSE_HEADERS = ['Content-Disposition', 'Content-Type']
 
 # JWT Settings
 from datetime import timedelta

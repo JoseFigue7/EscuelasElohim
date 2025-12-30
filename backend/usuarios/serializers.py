@@ -9,7 +9,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 
                   'tipo', 'telefono', 'fecha_nacimiento', 'direccion', 
                   'activo', 'debe_cambiar_password', 'fecha_creacion']
-        read_only_fields = ['id', 'fecha_creacion']
+        read_only_fields = ['id', 'fecha_creacion', 'username', 'tipo', 'activo', 'debe_cambiar_password']
 
 
 class UsuarioCreateSerializer(serializers.ModelSerializer):

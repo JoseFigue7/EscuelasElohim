@@ -10,7 +10,6 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCambiarPassword, setShowCambiarPassword] = useState(false);
-  const [logoError, setLogoError] = useState(false);
   const { login, isAuthenticated, debeCambiarPassword, refreshUser } = useAuth();
   const navigate = useNavigate();
 
@@ -52,20 +51,13 @@ const Login = () => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <div className="login-logo-container">
-          {!logoError && (
-            <img 
-              src="/images/ebenezer-logo.png" 
-              alt="Iglesia de Cristo Elohim" 
-              className="login-logo"
-              onError={() => setLogoError(true)}
-            />
-          )}
-          {logoError && (
-            <h1 className="login-logo-text">Iglesia de Cristo Elohim</h1>
-          )}
+        <div className="login-header">
+          <h1 className="login-title">
+            <span className="login-title-main">Iglesia de Cristo</span>
+            <span className="login-title-sub">Elohim</span>
+          </h1>
+          <h2 className="login-subtitle">Plataforma de Cursos</h2>
         </div>
-        <h2>Plataforma de Cursos</h2>
         <form onSubmit={handleSubmit}>
           {error && <div className="error-message">{error}</div>}
           <div className="form-group">

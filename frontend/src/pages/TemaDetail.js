@@ -131,17 +131,58 @@ const TemaDetail = () => {
     }
   };
 
-  const handleDownload = async (materialId, titulo) => {
+  const handleDownload = async (materialId, material) => {
     try {
       const response = await materialService.download(materialId);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      // Priorizar el nombre del archivo del serializer (más confiable)
+      let nombreArchivo = material.nombre_archivo;
+      
+      // Si no está disponible en el serializer, intentar extraer del header Content-Disposition
+      if (!nombreArchivo) {
+        const contentDisposition = response.headers['content-disposition'] || response.headers['Content-Disposition'];
+        
+        if (contentDisposition) {
+          // Intentar extraer el nombre del archivo (soporta ambos formatos: filename="..." y filename*=UTF-8''...)
+          let filenameMatch = contentDisposition.match(/filename\*?=['"]?([^'";\n]+)['"]?/i);
+          
+          if (!filenameMatch) {
+            // Intentar con formato RFC 5987: filename*=UTF-8''...
+            filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;\n]+)/i);
+            if (filenameMatch) {
+              // Decodificar URL encoding
+              nombreArchivo = decodeURIComponent(filenameMatch[1]);
+            }
+          } else {
+            // Formato simple: filename="..."
+            nombreArchivo = filenameMatch[1].replace(/['"]/g, '');
+          }
+        }
+      }
+      
+      // Fallback final: usar el título o un nombre genérico
+      if (!nombreArchivo) {
+        nombreArchivo = material.titulo || 'material';
+      }
+      
+      // Obtener el tipo de contenido del header de la respuesta
+      const contentType = response.headers['content-type'] || response.headers['Content-Type'] || 'application/octet-stream';
+      
+      // Crear el blob con el tipo de contenido correcto
+      const blob = new Blob([response.data], { type: contentType });
+      const url = window.URL.createObjectURL(blob);
+      
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', titulo);
+      link.setAttribute('download', nombreArchivo);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      
+      // Liberar el objeto URL
+      window.URL.revokeObjectURL(url);
     } catch (err) {
+      console.error('Error al descargar:', err);
       alert('Error al descargar el material');
     }
   };
@@ -328,9 +369,13 @@ const TemaDetail = () => {
               <label>Archivo *</label>
               <input
                 type="file"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar"
                 onChange={(e) => setMaterialForm({ ...materialForm, archivo: e.target.files[0] })}
                 required
               />
+              <small style={{display: 'block', marginTop: '8px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5'}}>
+                <strong>Tipos de archivos permitidos:</strong> PDF, Word (.doc, .docx), PowerPoint (.ppt, .pptx), Excel (.xls, .xlsx), Texto (.txt), Imágenes (.jpg, .jpeg, .png, .gif), Archivos comprimidos (.zip, .rar)
+              </small>
             </div>
             <button type="submit" className="btn-primary">Subir Material</button>
           </form>
@@ -349,7 +394,7 @@ const TemaDetail = () => {
                 </div>
                 <div className="material-actions">
                   <button
-                    onClick={() => handleDownload(material.id, material.titulo)}
+                    onClick={() => handleDownload(material.id, material)}
                     className="btn-download"
                   >
                     📥 Descargar

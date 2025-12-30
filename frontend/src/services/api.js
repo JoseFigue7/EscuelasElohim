@@ -80,6 +80,21 @@ export const authService = {
     return response.data;
   },
 
+  updateProfile: async (data) => {
+    // Limpiar datos: convertir strings vacíos a null para campos opcionales
+    const cleanedData = { ...data };
+    
+    // Campos opcionales: convertir strings vacíos a null
+    if (cleanedData.telefono === '') cleanedData.telefono = null;
+    if (cleanedData.fecha_nacimiento === '') cleanedData.fecha_nacimiento = null;
+    if (cleanedData.direccion === '') cleanedData.direccion = null;
+    
+    // Usar PATCH para actualización parcial (no requiere todos los campos)
+    const response = await api.patch('/auth/profile/', cleanedData);
+    localStorage.setItem('user', JSON.stringify(response.data));
+    return response.data;
+  },
+
   isAuthenticated: () => {
     return !!localStorage.getItem('access_token');
   },
@@ -134,7 +149,7 @@ export const materialService = {
     });
   },
   delete: (id) => api.delete(`/materiales/${id}/`),
-  download: (id) => api.get(`/materiales/${id}/`, { responseType: 'blob' }),
+  download: (id) => api.get(`/materiales/${id}/?download=true`, { responseType: 'blob' }),
 };
 
 // Servicio de Inscripciones

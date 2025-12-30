@@ -229,44 +229,76 @@ const ExamenesSection = ({ temas, onRefresh }) => {
           const isLoading = loading[tema.id];
 
           return (
-            <div key={tema.id} className="examen-item">
-              <div style={{flex: 1}}>
-                <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
+            <div key={tema.id} className="examen-item-card">
+              <div className="examen-item-header">
+                <div className="examen-item-title">
+                  <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
+                </div>
+                <button
+                  onClick={() => handleEdit(tema, examen)}
+                  className="btn-examen-action"
+                >
+                  {examen ? 'Editar Examen' : 'Crear Examen'}
+                </button>
+              </div>
+              
+              <div className="examen-item-content">
                 {isLoading ? (
-                  <p>Cargando...</p>
+                  <div className="examen-loading">
+                    <p>Cargando información del examen...</p>
+                  </div>
                 ) : examen ? (
-                  <div style={{marginTop: '12px', fontSize: '0.9rem', color: '#666'}}>
-                    <p><strong>Preguntas:</strong> {examen.numero_preguntas} aleatorias</p>
-                    <p><strong>Puntos por pregunta:</strong> {examen.puntos_por_pregunta}</p>
-                    <p><strong>Puntaje total:</strong> {examen.puntaje_total || (examen.numero_preguntas * examen.puntos_por_pregunta)}</p>
+                  <div className="examen-info-grid">
+                    <div className="examen-info-item">
+                      <span className="examen-info-label">Preguntas:</span>
+                      <span className="examen-info-value">{examen.numero_preguntas} aleatorias</span>
+                    </div>
+                    <div className="examen-info-item">
+                      <span className="examen-info-label">Puntos por pregunta:</span>
+                      <span className="examen-info-value">{examen.puntos_por_pregunta}</span>
+                    </div>
+                    <div className="examen-info-item">
+                      <span className="examen-info-label">Puntaje total:</span>
+                      <span className="examen-info-value">{examen.puntaje_total || (examen.numero_preguntas * examen.puntos_por_pregunta)}</span>
+                    </div>
+                    {examen.tiempo_limite && (
+                      <div className="examen-info-item">
+                        <span className="examen-info-label">Tiempo límite:</span>
+                        <span className="examen-info-value">{examen.tiempo_limite} minutos</span>
+                      </div>
+                    )}
                     {examen.fecha_inicio && (
-                      <p><strong>Disponible desde:</strong> {new Date(examen.fecha_inicio).toLocaleString()}</p>
+                      <div className="examen-info-item">
+                        <span className="examen-info-label">Disponible desde:</span>
+                        <span className="examen-info-value">{new Date(examen.fecha_inicio).toLocaleString('es-ES')}</span>
+                      </div>
                     )}
                     {examen.fecha_fin && (
-                      <p><strong>Disponible hasta:</strong> {new Date(examen.fecha_fin).toLocaleString()}</p>
+                      <div className="examen-info-item">
+                        <span className="examen-info-label">Disponible hasta:</span>
+                        <span className="examen-info-value">{new Date(examen.fecha_fin).toLocaleString('es-ES')}</span>
+                      </div>
                     )}
-                    <p>
-                      <strong>Estado:</strong>{' '}
+                    <div className="examen-info-item">
+                      <span className="examen-info-label">Estado:</span>
                       <span className={`badge ${examen.activo ? 'active' : 'inactive'}`}>
                         {examen.activo ? 'Activo' : 'Inactivo'}
                       </span>
-                    </p>
+                    </div>
                   </div>
                 ) : (
-                  <p style={{marginTop: '12px', color: '#888'}}>No hay examen creado para este tema</p>
+                  <div className="examen-empty-state">
+                    <p>No hay examen creado para este tema</p>
+                  </div>
                 )}
               </div>
-              <button
-                onClick={() => handleEdit(tema, examen)}
-                className="btn-primary"
-              >
-                {examen ? 'Editar Examen' : 'Crear Examen'}
-              </button>
             </div>
           );
         })}
         {temas.length === 0 && (
-          <p className="empty-state">Crea temas primero para crear exámenes.</p>
+          <div className="empty-state">
+            <p>Crea temas primero para crear exámenes.</p>
+          </div>
         )}
       </div>
     </div>

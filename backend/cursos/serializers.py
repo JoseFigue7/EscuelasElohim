@@ -28,10 +28,18 @@ class PromocionSerializer(serializers.ModelSerializer):
 
 
 class MaterialSerializer(serializers.ModelSerializer):
+    nombre_archivo = serializers.SerializerMethodField()
+    
     class Meta:
         model = Material
         fields = '__all__'
         read_only_fields = ['fecha_creacion']
+    
+    def get_nombre_archivo(self, obj):
+        """Retorna el nombre del archivo original"""
+        if obj.archivo:
+            return obj.archivo.name.split('/')[-1]  # Obtener solo el nombre del archivo
+        return None
 
 
 class TemaSerializer(serializers.ModelSerializer):

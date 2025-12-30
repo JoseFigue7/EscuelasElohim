@@ -220,6 +220,11 @@
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 20px;
   }
+
+  .header-buttons button {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 768px) {
@@ -252,3 +257,13 @@
     padding: 28px 24px;
   }
 }
+
+@media (max-width: 480px) {
+
+  .header-buttons button {
+    flex: auto;
+    min-width: 0;
+  }
+}
+
+

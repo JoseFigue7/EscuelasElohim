@@ -6,8 +6,7 @@
   animation: fadeIn var(--transition-slow) ease-out;
 }
 
-/* Page Header */
-.page-header {
+.header-actions {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -18,11 +17,13 @@
   color: white;
   box-shadow: var(--shadow-xl);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+  gap: 24px;
   position: relative;
   overflow: hidden;
 }
 
-.page-header::before {
+.header-actions::before {
   content: '';
   position: absolute;
   top: -50%;
@@ -33,23 +34,23 @@
   pointer-events: none;
 }
 
-.header-content {
+.header-actions h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: -0.03em;
   position: relative;
   z-index: 1;
 }
 
-.header-content h1 {
-  margin: 0 0 12px 0;
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.page-subtitle {
-  margin: 0;
+.header-actions p {
+  margin: 8px 0 0 0;
   opacity: 0.95;
   font-size: 1.05rem;
   font-weight: 400;
+  position: relative;
+  z-index: 1;
 }
 
 /* Buttons */
@@ -422,6 +423,7 @@
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
+  color:white;
 }
 
 .badge {
@@ -818,13 +820,13 @@
 }
 
 @media (max-width: 768px) {
-  .page-header {
+  .header-actions {
     flex-direction: column;
-    gap: 24px;
+    align-items: stretch;
     padding: 32px 28px;
   }
   
-  .header-content h1 {
+  .header-actions h1 {
     font-size: 2rem;
   }
 
@@ -862,3 +864,4 @@
     padding: 28px 24px;
   }
 }
+

@@ -305,8 +305,7 @@
 
 .tema-item,
 .alumno-item,
-.pregunta-item,
-.examen-item {
+.pregunta-item {
   background: var(--bg-primary);
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-xl);
@@ -322,8 +321,7 @@
 
 .tema-item:hover,
 .alumno-item:hover,
-.pregunta-item:hover,
-.examen-item:hover {
+.pregunta-item:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
   border-color: var(--primary-light);
@@ -332,12 +330,131 @@
 
 .tema-item h3,
 .alumno-item h3,
-.pregunta-item h4,
-.examen-item h3 {
+.pregunta-item h4 {
   margin: 0;
   color: var(--text-primary);
   font-size: 1.125rem;
   font-weight: 600;
+}
+
+/* Estilos específicos para exámenes */
+.examen-item-card {
+  background: white;
+  border: 1.5px solid #e5e7eb;
+  border-radius: var(--radius-xl);
+  padding: 0;
+  margin-bottom: 20px;
+  transition: all var(--transition-base);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.examen-item-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #3b82f6;
+}
+
+.examen-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.examen-item-title {
+  flex: 1;
+  min-width: 200px;
+}
+
+.examen-item-title h3 {
+  margin: 0;
+  color: #000000;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.btn-examen-action {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-examen-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.examen-item-content {
+  padding: 24px 28px;
+  background: white;
+}
+
+.examen-loading {
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.examen-empty-state {
+  padding: 20px;
+  text-align: center;
+  background: #f3f4f6;
+  border-radius: var(--radius-lg);
+  border: 2px solid #3b82f6;
+}
+
+.examen-empty-state p {
+  margin: 0;
+  color: #000000;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.examen-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.examen-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: var(--radius-lg);
+  border: 1px solid #e5e7eb;
+}
+
+.examen-info-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.examen-info-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #000000;
 }
 
 .tema-item span,
@@ -361,13 +478,13 @@
 }
 
 .badge.active {
-  background: var(--success-light);
-  color: #065f46;
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .badge.inactive {
-  background: var(--danger-light);
-  color: #991b1b;
+  background: #e5e7eb;
+  color: #000000;
 }
 
 .empty-state {
@@ -435,7 +552,6 @@
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  display: inline-block;
   transition: all var(--transition-base);
 }
 
@@ -521,6 +637,18 @@
   .section-header h2 {
     font-size: 1.75rem;
   }
+  
+  .examen-item-header {
+    padding: 20px 24px;
+  }
+  
+  .examen-item-content {
+    padding: 20px 24px;
+  }
+  
+  .examen-info-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
@@ -577,10 +705,83 @@
   
   .tema-item,
   .alumno-item,
-  .pregunta-item,
-  .examen-item {
+  .pregunta-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
+  }
+  
+  .examen-item-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  
+  .examen-item-title {
+    min-width: 0;
+  }
+  
+  .btn-examen-action {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .examen-info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .examen-item-content {
+    padding: 16px;
+  }
+  
+  .examen-item-header {
+    padding: 16px;
+  }
+  
+  .examen-item-title h3 {
+    font-size: 1.125rem;
+  }
+  
+  .btn-examen-action {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+  
+  .examen-info-item {
+    padding: 12px;
+  }
+  
+  .examen-info-label {
+    font-size: 11px;
+  }
+  
+  .examen-info-value {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .examenes-section {
+    padding: 24px 20px;
+  }
+  
+  .examen-item-card {
+    margin-bottom: 16px;
+  }
+  
+  .examen-item-header {
+    padding: 16px;
+  }
+  
+  .examen-item-content {
+    padding: 16px;
+  }
+  
+  .examen-info-grid {
+    gap: 12px;
+  }
+  
+  .examen-info-item {
+    padding: 12px;
   }
 }

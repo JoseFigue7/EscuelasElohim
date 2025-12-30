@@ -72,58 +72,50 @@
   }
 }
 
-.login-logo-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 24px;
+.login-header {
+  text-align: center;
+  margin-bottom: 48px;
 }
 
-.login-logo {
-  max-height: 120px;
-  max-width: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  animation: fadeIn 0.6s ease-out;
+.login-title {
+  margin: 0 0 8px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1.2;
+}
+
+.login-title-main {
+  font-size: 2.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.03em;
   display: block;
 }
 
-.login-logo-text {
-  color: var(--text-primary);
-  margin: 0 0 12px 0;
-  text-align: center;
+.login-title-sub {
   font-size: 2.75rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #d97706 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+  letter-spacing: -0.03em;
+  display: block;
 }
 
-.login-card h1 {
-  color: var(--text-primary);
-  margin: 0 0 12px 0;
-  text-align: center;
-  font-size: 2.75rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-}
-
-.login-card h2 {
-  color: var(--text-secondary);
+.login-subtitle {
+  color: #6b7280;
   font-size: 1rem;
   font-weight: 400;
-  margin-bottom: 48px;
+  margin: 0;
   text-align: center;
   line-height: 1.6;
+  opacity: 0.9;
 }
 
 .form-group {
@@ -248,12 +240,16 @@
     border-radius: var(--radius-xl);
   }
   
-  .login-card h1 {
-    font-size: 2.25rem;
+  .login-title-main,
+  .login-title-sub {
+    font-size: 2rem;
   }
   
-  .login-card h2 {
+  .login-subtitle {
     font-size: 0.95rem;
+  }
+  
+  .login-header {
     margin-bottom: 36px;
   }
   

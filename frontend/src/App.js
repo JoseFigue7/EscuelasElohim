@@ -12,6 +12,7 @@ import ExamenesList from './pages/ExamenesList';
 import TomarExamen from './pages/TomarExamen';
 import Calificaciones from './pages/Calificaciones';
 import GestionarPromocion from './pages/GestionarPromocion';
+import GestionarPromociones from './pages/GestionarPromociones';
 import GestionarUsuarios from './pages/GestionarUsuarios';
 import GestionarCursos from './pages/GestionarCursos';
 import TemaDetail from './pages/TemaDetail';
@@ -84,6 +85,14 @@ function App() {
                       element={
                         <ProtectedRoute requireDocente>
                           <GestionarCursos />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/promociones-gestion"
+                      element={
+                        <ProtectedRoute requireDocente>
+                          <GestionarPromociones />
                         </ProtectedRoute>
                       }
                     />
