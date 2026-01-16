@@ -47,10 +47,10 @@
   color: white;
   box-shadow: var(--shadow-xl);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   justify-content: space-between;
   align-items: flex-start;
-  flex-wrap: wrap;
   gap: 24px;
 }
 
@@ -96,11 +96,23 @@
   line-height: 1.6;
 }
 
-.promocion-actions {
+.gestionar-promocion .promocion-actions {
   display: flex;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-start;
+  justify-content: flex-end;
+  margin-left: auto;
+  margin-top: -6px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  border-top: none;
+  padding-top: 0;
+  align-self: center;
+}
+
+.gestionar-promocion .promocion-actions button {
+  width: auto;
 }
 
 .promocion-action-stack {
@@ -699,6 +711,41 @@
   transform: translateY(-1px);
 }
 
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-actions .btn-secondary,
+.table-actions .btn-delete {
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.2;
+  min-width: 0;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.table-actions .btn-secondary {
+  padding: 8px 16px;
+}
+
+@media (max-width: 640px) {
+  .table-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .table-actions .btn-secondary,
+  .table-actions .btn-delete {
+    flex: 1 1 120px;
+    justify-content: center;
+  }
+}
+
 .btn-delete {
   background: var(--danger-color);
   color: white;
@@ -761,7 +808,7 @@
   }
   
   .promocion-header-section {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     padding: 32px 28px;
   }
   
