@@ -227,7 +227,8 @@ export const promedioService = {
 
 // Servicio de Diplomas
 export const diplomaService = {
-  getAll: () => api.get('/diplomas/'),
+  getAll: (promocionId) =>
+    api.get('/diplomas/', { params: promocionId ? { promocion: promocionId } : {} }),
   getById: (id) => api.get(`/diplomas/${id}/`),
   generarDiplomas: (promocionId) => 
     api.post('/diplomas/generar_diplomas/', { promocion_id: promocionId }),

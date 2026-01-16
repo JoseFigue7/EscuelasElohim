@@ -20,6 +20,7 @@ const GestionarUsuarios = () => {
     telefono: '',
   });
   const [tipoFiltro, setTipoFiltro] = useState('');
+  const [nombreFiltro, setNombreFiltro] = useState('');
 
   useEffect(() => {
     loadUsuarios();
@@ -137,6 +138,18 @@ const GestionarUsuarios = () => {
     return <div className="loading-container"><div className="spinner"></div><p>Cargando usuarios...</p></div>;
   }
 
+  const usuariosFiltrados = usuarios.filter((usuario) => {
+    if (!nombreFiltro.trim()) {
+      return true;
+    }
+    const nombreCompleto = `${usuario.first_name || ''} ${usuario.last_name || ''}`.trim();
+    const busqueda = nombreFiltro.toLowerCase();
+    return (
+      nombreCompleto.toLowerCase().includes(busqueda) ||
+      usuario.username.toLowerCase().includes(busqueda)
+    );
+  });
+
   return (
     <div className="gestionar-usuarios">
       <div className="header-actions">
@@ -152,6 +165,16 @@ const GestionarUsuarios = () => {
 
       <div className="filters-bar">
         <div className="filter-group">
+          <label>Buscar por nombre:</label>
+          <input
+            type="text"
+            value={nombreFiltro}
+            onChange={(e) => setNombreFiltro(e.target.value)}
+            className="filter-input"
+            placeholder="Ej. Juan Pérez"
+          />
+        </div>
+        <div className="filter-group">
           <label>Filtrar por tipo:</label>
           <select 
             value={tipoFiltro} 
@@ -165,7 +188,7 @@ const GestionarUsuarios = () => {
           </select>
         </div>
         <div className="users-count">
-          <span className="count-number">{usuarios.length}</span>
+          <span className="count-number">{usuariosFiltrados.length}</span>
           <span className="count-label">usuarios</span>
         </div>
       </div>
@@ -293,52 +316,71 @@ const GestionarUsuarios = () => {
       )}
 
       <div className="usuarios-container">
-        {usuarios.length === 0 ? (
+        {usuariosFiltrados.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">👤</div>
-            <h3>No hay usuarios registrados</h3>
-            <p>Crea tu primer usuario para comenzar</p>
+            {usuarios.length === 0 ? (
+              <>
+                <h3>No hay usuarios registrados</h3>
+                <p>Crea tu primer usuario para comenzar</p>
+              </>
+            ) : (
+              <>
+                <h3>No se encontraron usuarios</h3>
+                <p>Intenta con otro nombre o limpia el filtro</p>
+              </>
+            )}
           </div>
         ) : (
-          <div className="usuarios-grid">
-            {usuarios.map((usuario) => (
-              <div key={usuario.id} className="usuario-card">
-                <div className="card-header">
-                  <div className="user-avatar">
-                    {usuario.first_name ? usuario.first_name.charAt(0).toUpperCase() : usuario.username.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="user-info-header">
-                    <h3>{usuario.first_name} {usuario.last_name}</h3>
-                    <span className="username">@{usuario.username}</span>
-                  </div>
-                  <span className={`badge badge-${usuario.tipo}`}>
-                    {usuario.tipo === 'alumno' ? 'Alumno' : usuario.tipo === 'docente' ? 'Docente' : 'Admin'}
-                  </span>
-                </div>
-                
-                <div className="card-body">
-                  <div className="info-item">
-                    <span className="info-label">Email:</span>
-                    <span className="info-value">{usuario.email || 'No especificado'}</span>
-                  </div>
-                  {usuario.telefono && (
-                    <div className="info-item">
-                      <span className="info-label">Teléfono:</span>
-                      <span className="info-value">{usuario.telefono}</span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="card-actions">
-                  <button onClick={() => handleEdit(usuario)} className="btn-edit">
-                    <span>✏️</span> Editar
-                  </button>
-                  <button onClick={() => handleDelete(usuario.id)} className="btn-delete">
-                    <span>🗑️</span> Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="usuarios-table-wrapper">
+            <table className="usuarios-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Rol</th>
+                  <th>Email</th>
+                  <th>Teléfono</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usuariosFiltrados.map((usuario) => {
+                  const nombreCompleto = `${usuario.first_name || ''} ${usuario.last_name || ''}`.trim();
+                  return (
+                    <tr key={usuario.id}>
+                      <td>
+                        <div className="table-user">
+                          <div className="table-user-avatar">
+                            {(usuario.first_name || usuario.username).charAt(0).toUpperCase()}
+                          </div>
+                          <div className="table-user-info">
+                            <span className="table-user-name">{nombreCompleto || usuario.username}</span>
+                            <span className="table-user-username">@{usuario.username}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge badge-${usuario.tipo}`}>
+                          {usuario.tipo === 'alumno' ? 'Alumno' : usuario.tipo === 'docente' ? 'Docente' : 'Admin'}
+                        </span>
+                      </td>
+                      <td>{usuario.email || 'No especificado'}</td>
+                      <td>{usuario.telefono || 'No especificado'}</td>
+                      <td>
+                        <div className="table-actions">
+                          <button onClick={() => handleEdit(usuario)} className="btn-edit">
+                            <span>✏️</span> Editar
+                          </button>
+                          <button onClick={() => handleDelete(usuario.id)} className="btn-delete">
+                            <span>🗑️</span> Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

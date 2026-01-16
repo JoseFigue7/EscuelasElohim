@@ -10,6 +10,7 @@ const DocenteDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showNewPromocion, setShowNewPromocion] = useState(false);
+  const [editingPromocion, setEditingPromocion] = useState(null);
   const [newPromocion, setNewPromocion] = useState({
     curso: '',
     nombre: '',
@@ -33,7 +34,13 @@ const DocenteDashboard = () => {
       setCursos(cursosResponse.data.results || cursosResponse.data);
       setError('');
     } catch (err) {
-      setError('Error al cargar los datos');
+      const status = err.response?.status;
+      const detail =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        err.message ||
+        'Sin detalle';
+      setError(`Error al cargar los datos${status ? ` (${status})` : ''}: ${detail}`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -43,7 +50,11 @@ const DocenteDashboard = () => {
   const handleCreatePromocion = async (e) => {
     e.preventDefault();
     try {
-      await promocionService.create(newPromocion);
+      if (editingPromocion) {
+        await promocionService.update(editingPromocion.id, newPromocion);
+      } else {
+        await promocionService.create(newPromocion);
+      }
       setShowNewPromocion(false);
       setNewPromocion({
         curso: '',
@@ -52,10 +63,56 @@ const DocenteDashboard = () => {
         fecha_inicio: '',
         fecha_fin: '',
       });
+      setEditingPromocion(null);
       loadData();
     } catch (err) {
       alert('Error al crear la promoción: ' + (err.response?.data?.detail || err.message));
     }
+  };
+
+  const handleEditPromocion = (promocion) => {
+    setEditingPromocion(promocion);
+    setNewPromocion({
+      curso: promocion.curso,
+      nombre: promocion.nombre,
+      descripcion: promocion.descripcion || '',
+      fecha_inicio: promocion.fecha_inicio ? promocion.fecha_inicio.split('T')[0] : '',
+      fecha_fin: promocion.fecha_fin ? promocion.fecha_fin.split('T')[0] : '',
+    });
+    setShowNewPromocion(true);
+  };
+
+  const handleDeletePromocion = async (id) => {
+    if (!window.confirm('¿Estás seguro de eliminar esta promoción? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    try {
+      await promocionService.delete(id);
+      loadData();
+    } catch (err) {
+      alert('Error al eliminar la promoción: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleToggleActiva = async (promocion) => {
+    try {
+      await promocionService.update(promocion.id, { ...promocion, activa: !promocion.activa });
+      loadData();
+    } catch (err) {
+      alert('Error al actualizar la promoción');
+    }
+  };
+
+  const resetForm = () => {
+    setNewPromocion({
+      curso: '',
+      nombre: '',
+      descripcion: '',
+      fecha_inicio: '',
+      fecha_fin: '',
+    });
+    setEditingPromocion(null);
+    setShowNewPromocion(false);
   };
 
   if (loading) {
@@ -85,7 +142,7 @@ const DocenteDashboard = () => {
 
       {showNewPromocion && (
         <div className="new-promocion-form">
-          <h2>Crear Nueva Promoción</h2>
+          <h2>{editingPromocion ? 'Editar Promoción' : 'Crear Nueva Promoción'}</h2>
           <form onSubmit={handleCreatePromocion}>
             <div className="form-group">
               <label>Curso</label>
@@ -152,8 +209,13 @@ const DocenteDashboard = () => {
               </div>
             </div>
             <button type="submit" className="btn-primary">
-              Crear Promoción
+              {editingPromocion ? 'Actualizar Promoción' : 'Crear Promoción'}
             </button>
+            {editingPromocion && (
+              <button type="button" className="btn-secondary" onClick={resetForm}>
+                Cancelar
+              </button>
+            )}
           </form>
         </div>
       )}
@@ -166,10 +228,18 @@ const DocenteDashboard = () => {
       ) : (
         <div className="cards-grid">
           {promociones.map((promocion) => (
-            <Link
+            <div
               key={promocion.id}
-              to={`/promociones/${promocion.id}/gestion`}
               className="card"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/promociones/${promocion.id}/gestion`)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(`/promociones/${promocion.id}/gestion`);
+                }
+              }}
             >
               <h2>{promocion.nombre}</h2>
               <p className="curso-name">{promocion.curso_nombre}</p>
@@ -183,7 +253,28 @@ const DocenteDashboard = () => {
                   </span>
                 )}
               </div>
-            </Link>
+              <div className="card-actions" onClick={(event) => event.stopPropagation()}>
+                <Link
+                  to={`/promociones/${promocion.id}/gestion`}
+                  className="btn-manage"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  Gestionar
+                </Link>
+                <button
+                  onClick={() => handleToggleActiva(promocion)}
+                  className={`btn-toggle ${promocion.activa ? 'desactivar' : 'activar'}`}
+                >
+                  {promocion.activa ? 'Desactivar' : 'Activar'}
+                </button>
+                <button onClick={() => handleEditPromocion(promocion)} className="btn-edit">
+                  Editar
+                </button>
+                <button onClick={() => handleDeletePromocion(promocion.id)} className="btn-delete">
+                  Eliminar
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       )}

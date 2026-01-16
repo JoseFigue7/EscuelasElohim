@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { temaService, inscripcionService, asistenciaService, usuarioService, preguntaService, examenService, promedioService, diplomaService, promocionService } from '../services/api';
 import PreguntasSection from '../components/PreguntasSection';
 import ExamenesSection from '../components/ExamenesSection';
@@ -7,6 +7,7 @@ import './GestionarPromocion.css';
 
 const GestionarPromocion = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [temas, setTemas] = useState([]);
   const [inscripciones, setInscripciones] = useState([]);
   const [alumnos, setAlumnos] = useState([]);
@@ -16,6 +17,10 @@ const GestionarPromocion = () => {
   const [showNewTema, setShowNewTema] = useState(false);
   const [showNewInscripcion, setShowNewInscripcion] = useState(false);
   const [showEditPromocion, setShowEditPromocion] = useState(false);
+  const [diplomas, setDiplomas] = useState([]);
+  const [diplomasLoading, setDiplomasLoading] = useState(false);
+  const [promedios, setPromedios] = useState([]);
+  const [promediosLoading, setPromediosLoading] = useState(false);
   const [editPromocion, setEditPromocion] = useState({
     nombre: '',
     descripcion: '',
@@ -30,10 +35,54 @@ const GestionarPromocion = () => {
     fecha_clase: '',
   });
   const [selectedAlumno, setSelectedAlumno] = useState('');
+  const CORDERITOS_CURSO = 'Escuela de Corderitos';
 
   useEffect(() => {
     loadData();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'promedios') {
+      loadPromedios();
+      loadDiplomas();
+    }
+  }, [activeTab, id]);
+
+  const resolveDiplomaUrl = (archivo) => {
+    if (!archivo) return null;
+    if (archivo.startsWith('http://') || archivo.startsWith('https://')) {
+      return archivo;
+    }
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+    const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+    return `${baseUrl}${archivo.startsWith('/') ? '' : '/'}${archivo}`;
+  };
+
+  const getCorderitosDiplomaUrl = () => {
+    const baseUrl = process.env.PUBLIC_URL || '';
+    const fileName = encodeURIComponent('Escuela de corderitos diploma.pdf');
+    return `${baseUrl}/images/${fileName}`;
+  };
+
+  const normalizeText = (value) => (value || '').toString().trim().toLowerCase();
+  const isCursoCorderitos = (value) =>
+    normalizeText(value).includes(normalizeText(CORDERITOS_CURSO));
+
+  const handleDescargarDiplomaCorderitos = (alumnoNombre) => {
+    try {
+      const templateUrl = getCorderitosDiplomaUrl();
+      const safeNombre = alumnoNombre || 'Alumno';
+      const link = document.createElement('a');
+      link.href = templateUrl;
+      link.download = `Diploma - ${safeNombre}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Error al descargar diploma de Corderitos:', err);
+      alert(`No se pudo descargar el diploma. ${err?.message || ''}`.trim());
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -102,6 +151,7 @@ const GestionarPromocion = () => {
       await promedioService.calcularPromedios(id);
       alert('Promedios calculados correctamente');
       loadData();
+      loadPromedios();
     } catch (err) {
       alert('Error al calcular promedios');
     }
@@ -114,8 +164,45 @@ const GestionarPromocion = () => {
     try {
       const response = await diplomaService.generarDiplomas(id);
       alert(response.data.mensaje);
+      if (Array.isArray(response.data.diplomas)) {
+        setDiplomas(response.data.diplomas);
+      } else {
+        loadDiplomas();
+      }
     } catch (err) {
-      alert('Error al generar diplomas');
+      const detail =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        err.response?.data?.mensaje ||
+        err.message ||
+        'Error al generar diplomas';
+      alert(`Error al generar diplomas: ${detail}`);
+    }
+  };
+
+  const loadDiplomas = async () => {
+    setDiplomasLoading(true);
+    try {
+      const response = await diplomaService.getAll(id);
+      setDiplomas(response.data.results || response.data);
+    } catch (err) {
+      console.error('Error al cargar diplomas:', err);
+      setDiplomas([]);
+    } finally {
+      setDiplomasLoading(false);
+    }
+  };
+
+  const loadPromedios = async () => {
+    setPromediosLoading(true);
+    try {
+      const response = await promedioService.getAll(id);
+      setPromedios(response.data.results || response.data);
+    } catch (err) {
+      console.error('Error al cargar promedios:', err);
+      setPromedios([]);
+    } finally {
+      setPromediosLoading(false);
     }
   };
 
@@ -170,9 +257,51 @@ const GestionarPromocion = () => {
     }
   };
 
+  const handleEliminarPromocion = async () => {
+    if (!promocion) return;
+    const confirmText = `¿Eliminar la promoción "${promocion.nombre}"? Esta acción no se puede deshacer.`;
+    if (!window.confirm(confirmText)) {
+      return;
+    }
+    try {
+      await promocionService.delete(id);
+      alert('Promoción eliminada correctamente');
+      navigate('/promociones-gestion');
+    } catch (err) {
+      console.error('Error al eliminar promoción:', err);
+      alert('Error al eliminar promoción: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
   if (loading) {
     return <div className="loading">Cargando...</div>;
   }
+
+  const promediosByInscripcion = new Map(
+    promedios.map((promedio) => [
+      String(promedio?.inscripcion?.id ?? promedio?.inscripcion),
+      promedio,
+    ])
+  );
+  const diplomasByInscripcion = new Map(
+    diplomas.map((diploma) => [
+      String(diploma?.inscripcion?.id ?? diploma?.inscripcion),
+      diploma,
+    ])
+  );
+  const filasPromedios = inscripciones.map((inscripcion) => ({
+    inscripcion,
+    promedio: promediosByInscripcion.get(String(inscripcion.id)),
+  }));
+  const formatPromedio = (value) => {
+    const numeric = Number.parseFloat(value);
+    if (!Number.isFinite(numeric)) return null;
+    return numeric.toFixed(2);
+  };
+  const formatFecha = (value) => {
+    if (!value) return null;
+    return new Date(value).toLocaleString('es-ES');
+  };
 
   return (
     <div className="gestionar-promocion">
@@ -206,15 +335,15 @@ const GestionarPromocion = () => {
           )}
         </div>
         <div className="promocion-actions">
-          {promocion?.activa ? (
-            <button onClick={handleFinalizarPromocion} className="btn-secondary">
-              🏁 Finalizar Promoción
-            </button>
-          ) : (
-            <button onClick={handleActivarPromocion} className="btn-primary">
-              ▶️ Reactivar Promoción
-            </button>
-          )}
+            {promocion?.activa ? (
+              <button onClick={handleFinalizarPromocion} className="btn-secondary">
+                🏁 Finalizar Promoción
+              </button>
+            ) : (
+              <button onClick={handleActivarPromocion} className="btn-primary">
+                ▶️ Reactivar Promoción
+              </button>
+            )}
           <button onClick={handleEditPromocion} className="btn-primary">
             ✏️ Editar Promoción
           </button>
@@ -481,9 +610,103 @@ const GestionarPromocion = () => {
             </div>
           </div>
           <p className="info-text">
-            Calcula los promedios finales de todos los estudiantes. Los que tengan promedio >= 80% 
+            Calcula los promedios finales de todos los estudiantes. Los que tengan promedio &ge; 80%
             serán considerados aprobados y podrán recibir su diploma.
           </p>
+
+          <div className="promedios-table-section">
+            <h3>Promedios por alumno</h3>
+            {promediosLoading ? (
+              <p className="info-text">Cargando promedios...</p>
+            ) : inscripciones.length === 0 ? (
+              <div className="empty-state">
+                <p>No hay alumnos inscritos para mostrar promedios.</p>
+              </div>
+            ) : (
+              <div className="promedios-table-wrapper">
+                <table className="promedios-table">
+                  <thead>
+                    <tr>
+                      <th>Alumno</th>
+                      <th>Curso</th>
+                      <th>Promedio</th>
+                      <th>Estado</th>
+                      <th>Fecha de cálculo</th>
+                      <th>Diploma</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filasPromedios.map(({ inscripcion, promedio }) => {
+                      const promedioFinal = formatPromedio(promedio?.promedio_final);
+                      const fechaCalculo = formatFecha(promedio?.fecha_calculo);
+                      const alumnoNombre =
+                        inscripcion?.alumno_nombre || promedio?.alumno_nombre || 'Alumno';
+                      const cursoNombre =
+                        inscripcion?.curso_nombre ||
+                        inscripcion?.curso?.nombre ||
+                        promocion?.curso_nombre ||
+                        promocion?.curso?.nombre ||
+                        '';
+                      const esCorderitos = isCursoCorderitos(cursoNombre);
+                      const diploma = diplomasByInscripcion.get(inscripcion.id);
+                      const archivoUrl = resolveDiplomaUrl(diploma?.archivo);
+                      const puedeDescargar = Boolean(promedio?.aprobado);
+
+                      return (
+                        <tr key={inscripcion.id}>
+                          <td>{alumnoNombre}</td>
+                          <td>{cursoNombre}</td>
+                          <td>{promedioFinal ? `${promedioFinal}%` : 'Sin calcular'}</td>
+                          <td>
+                            <span className={`badge ${promedio?.aprobado ? 'active' : 'inactive'}`}>
+                              {promedio ? (promedio.aprobado ? 'Aprobado' : 'Reprobado') : 'Sin promedio'}
+                            </span>
+                          </td>
+                          <td>{fechaCalculo || 'Sin cálculo'}</td>
+                          <td>
+                            {puedeDescargar ? (
+                              esCorderitos ? (
+                                <button
+                                  className="btn-secondary"
+                                  type="button"
+                                  onClick={() => handleDescargarDiplomaCorderitos(alumnoNombre)}
+                                >
+                                  Descargar
+                                </button>
+                              ) : archivoUrl ? (
+                                <a
+                                  className="btn-secondary"
+                                  href={archivoUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download
+                                >
+                                  Descargar
+                                </a>
+                              ) : (
+                                <button
+                                  className="btn-secondary"
+                                  type="button"
+                                  onClick={() => alert('El diploma aún no está disponible para descargar.')}
+                                >
+                                  Descargar
+                                </button>
+                              )
+                            ) : (
+                              <button className="btn-secondary" type="button" disabled>
+                                Descargar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
         </div>
       )}
     </div>

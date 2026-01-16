@@ -1,9 +1,14 @@
+import io
+import os
+
+from django.conf import settings
+from django.core.files.base import ContentFile
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Count
 from decimal import Decimal
 
 from .models import (
@@ -640,6 +645,105 @@ class PromedioPromocionViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'mensaje': 'Promedios calculados correctamente'})
 
 
+def _normalize_course_name(name):
+    if not name:
+        return ''
+    normalized = name.strip().lower()
+    if normalized.startswith('-'):
+        normalized = normalized.lstrip('-').strip()
+    return normalized
+
+
+def _get_brittany_font(font_size):
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+    except ModuleNotFoundError:
+        return None
+    font_paths = [
+        os.path.join(settings.BASE_DIR, 'cursos', 'assets', 'fonts', 'Brittany.ttf'),
+        os.path.join(settings.MEDIA_ROOT, 'fonts', 'Brittany.ttf'),
+    ]
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            font_name = 'Brittany'
+            if font_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(font_name, font_path))
+            return font_name
+    return None
+
+
+def _generate_diploma_pdf(alumno_nombre, curso_nombre):
+    try:
+        from PyPDF2 import PdfReader, PdfWriter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.colors import HexColor
+        from reportlab.pdfbase import pdfmetrics
+    except ModuleNotFoundError:
+        return None, 'Faltan dependencias para generar PDFs (reportlab y PyPDF2).'
+    template_map = {
+        'escuela de corderitos': {
+            'template_filename': 'Escuela de corderitos diploma.pdf',
+            'text_color': '#1f3b5a',
+            'font_size': 48,
+            'y_ratio': 0.54,
+            'max_width_ratio': 0.75,
+        }
+    }
+    normalized_course = _normalize_course_name(curso_nombre)
+    if normalized_course not in template_map:
+        return None, 'No hay plantilla configurada para este curso.'
+
+    config = template_map[normalized_course]
+    template_path = os.path.join(
+        settings.BASE_DIR.parent,
+        'frontend',
+        'public',
+        'images',
+        config['template_filename'],
+    )
+    if not os.path.exists(template_path):
+        return None, 'No se encontró la plantilla del diploma.'
+
+    reader = PdfReader(template_path)
+    if not reader.pages:
+        return None, 'La plantilla del diploma está vacía.'
+
+    base_page = reader.pages[0]
+    width = float(base_page.mediabox.width)
+    height = float(base_page.mediabox.height)
+
+    font_size = config['font_size']
+    font_name = _get_brittany_font(font_size) or 'Helvetica'
+    max_text_width = width * config['max_width_ratio']
+    text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
+    while text_width > max_text_width and font_size > 28:
+        font_size -= 2
+        text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
+
+    x = (width - text_width) / 2
+    y = height * config['y_ratio']
+
+    packet = io.BytesIO()
+    overlay = canvas.Canvas(packet, pagesize=(width, height))
+    overlay.setFillColor(HexColor(config['text_color']))
+    overlay.setFont(font_name, font_size)
+    overlay.drawString(x, y, alumno_nombre)
+    overlay.save()
+
+    packet.seek(0)
+    overlay_reader = PdfReader(packet)
+    base_page.merge_page(overlay_reader.pages[0])
+
+    writer = PdfWriter()
+    writer.add_page(base_page)
+
+    output = io.BytesIO()
+    writer.write(output)
+    output.seek(0)
+    return output, None
+
+
 class DiplomaViewSet(viewsets.ModelViewSet):
     queryset = Diploma.objects.select_related('inscripcion', 'inscripcion__alumno', 'inscripcion__promocion').all()
     serializer_class = DiplomaSerializer
@@ -652,6 +756,10 @@ class DiplomaViewSet(viewsets.ModelViewSet):
         # Alumnos solo ven sus propios diplomas
         if user.es_alumno:
             queryset = queryset.filter(inscripcion__alumno=user)
+
+        promocion_id = self.request.query_params.get('promocion')
+        if promocion_id:
+            queryset = queryset.filter(inscripcion__promocion_id=promocion_id)
         
         return queryset
     
@@ -664,29 +772,103 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 {'error': 'promocion_id es requerido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        from .models import Inscripcion
-        # Obtener inscripciones con promedio aprobado (>= 80%)
-        promedios = PromedioPromocion.objects.filter(
-            inscripcion__promocion_id=promocion_id,
-            aprobado=True
-        )
-        
-        diplomas_creados = []
-        for promedio in promedios:
-            # Verificar si ya tiene diploma
-            diploma, created = Diploma.objects.get_or_create(
-                inscripcion=promedio.inscripcion,
-                defaults={'activo': True}
-            )
-            if created:
-                diplomas_creados.append({
-                    'alumno': f"{promedio.inscripcion.alumno.get_full_name() or promedio.inscripcion.alumno.username}",
-                    'codigo': diploma.codigo_diploma
+        try:
+            promocion = get_object_or_404(Promocion, id=promocion_id)
+            total_examenes = Examen.objects.filter(tema__curso=promocion.curso).count()
+            if total_examenes == 0:
+                return Response({
+                    'mensaje': 'No hay exámenes configurados para este curso.',
+                    'diplomas': [],
+                    'advertencias': [],
                 })
-        
-        return Response({
-            'mensaje': f'Diplomas generados: {len(diplomas_creados)}',
-            'diplomas': diplomas_creados
-        })
+
+            # Recalcular promedios antes de evaluar aprobados
+            inscripciones = Inscripcion.objects.filter(promocion=promocion, activa=True)
+            for inscripcion in inscripciones:
+                promedio, _created = PromedioPromocion.objects.get_or_create(
+                    inscripcion=inscripcion
+                )
+                promedio.calcular_promedio()
+
+            # Obtener inscripciones con promedio aprobado (>= 80%)
+            promedios = PromedioPromocion.objects.filter(
+                inscripcion__promocion_id=promocion_id,
+                aprobado=True
+            )
+
+            completados_por_inscripcion = {
+                item['inscripcion_id']: item['examenes_completados']
+                for item in CalificacionExamen.objects.filter(
+                    inscripcion__promocion_id=promocion_id,
+                    examen__tema__curso=promocion.curso
+                )
+                .values('inscripcion_id')
+                .annotate(examenes_completados=Count('examen', distinct=True))
+            }
+            
+            diplomas_creados = []
+            diplomas_resultados = []
+            advertencias = []
+            for promedio in promedios:
+                completados = completados_por_inscripcion.get(promedio.inscripcion_id, 0)
+                if completados < total_examenes:
+                    alumno_nombre = (
+                        promedio.inscripcion.alumno.get_full_name()
+                        or promedio.inscripcion.alumno.username
+                    )
+                    advertencias.append({
+                        'alumno': alumno_nombre,
+                        'curso': promedio.inscripcion.promocion.curso.nombre,
+                        'detalle': (
+                            f'No ha completado todos los exámenes '
+                            f'({completados}/{total_examenes}).'
+                        ),
+                    })
+                    continue
+
+                # Verificar si ya tiene diploma
+                diploma, created = Diploma.objects.get_or_create(
+                    inscripcion=promedio.inscripcion,
+                    defaults={'activo': True}
+                )
+                alumno_nombre = (
+                    promedio.inscripcion.alumno.get_full_name()
+                    or promedio.inscripcion.alumno.username
+                )
+                curso_nombre = promedio.inscripcion.promocion.curso.nombre
+                if created or not diploma.archivo:
+                    pdf_buffer, error = _generate_diploma_pdf(alumno_nombre, curso_nombre)
+                    if pdf_buffer:
+                        filename = f"diploma_{diploma.codigo_diploma}.pdf"
+                        diploma.archivo.save(filename, ContentFile(pdf_buffer.read()), save=True)
+                    elif error:
+                        advertencias.append({
+                            'alumno': alumno_nombre,
+                            'curso': curso_nombre,
+                            'detalle': error,
+                        })
+                if created:
+                    diplomas_creados.append({
+                        'alumno': alumno_nombre,
+                        'codigo': diploma.codigo_diploma,
+                        'archivo': diploma.archivo.url if diploma.archivo else None,
+                        'creado': True,
+                    })
+                diplomas_resultados.append({
+                    'alumno': alumno_nombre,
+                    'codigo': diploma.codigo_diploma,
+                    'archivo': diploma.archivo.url if diploma.archivo else None,
+                    'creado': created,
+                })
+            
+            return Response({
+                'mensaje': f'Diplomas generados: {len(diplomas_creados)}',
+                'diplomas': diplomas_resultados,
+                'advertencias': advertencias,
+            })
+        except Exception as exc:
+            return Response(
+                {'error': f'Error al generar diplomas: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 

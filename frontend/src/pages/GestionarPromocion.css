@@ -103,6 +103,12 @@
   align-items: flex-start;
 }
 
+.promocion-action-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .promocion-actions .btn-primary,
 .promocion-actions .btn-secondary {
   background: rgba(255, 255, 255, 0.95);
@@ -521,6 +527,94 @@
   font-weight: 500;
 }
 
+.promedios-table-section {
+  margin-top: 28px;
+}
+
+.promedios-table-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.promedios-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.promedios-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.promedios-table thead {
+  background: var(--bg-secondary);
+}
+
+.promedios-table th,
+.promedios-table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color-light);
+  text-align: left;
+  font-size: 14px;
+}
+
+.promedios-table th {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.promedios-table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.promedios-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.diplomas-section {
+  margin-top: 24px;
+}
+
+.diplomas-section h3 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.diplomas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.diploma-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.diploma-code {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
@@ -615,11 +709,12 @@
   transform: translateY(-1px);
 }
 
-.checkbox-label {
-  display: flex;
+.form-group .checkbox-label {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
+  margin-bottom: 0;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -627,6 +722,11 @@
   height: 20px;
   cursor: pointer;
   accent-color: var(--primary-color);
+  margin: 0;
+}
+
+.checkbox-label span {
+  line-height: 1;
 }
 
 @media (max-width: 1024px) {

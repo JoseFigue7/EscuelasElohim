@@ -388,6 +388,7 @@ class Diploma(models.Model):
     fecha_emision = models.DateTimeField(auto_now_add=True)
     fecha_validez = models.DateField(blank=True, null=True)
     activo = models.BooleanField(default=True)
+    archivo = models.FileField(upload_to='diplomas/', blank=True, null=True)
     
     class Meta:
         verbose_name = 'Diploma'

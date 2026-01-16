@@ -142,7 +142,7 @@ code {
 h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   line-height: 1.2;
-  color: white;
+
   margin: 0;
   letter-spacing: -0.025em;
 }
@@ -151,6 +151,16 @@ h1 {
   font-size: 2.5rem;
   font-weight: 800;
   letter-spacing: -0.04em;
+  background: linear-gradient(135deg, #1e40af 0%, #7dd3fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.role-docente h1 {
+  color: white;
+  background: none;
+  -webkit-text-fill-color: white;
 }
 
 h2 {

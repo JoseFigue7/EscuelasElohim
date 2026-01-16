@@ -263,7 +263,7 @@ const TomarExamen = () => {
           >
             Cancelar
           </button>
-          <button type="submit" disabled={submitting} className="btn-primary">
+          <button type="submit" disabled={submitting} className="btn-primary btn-examen-submit">
             {submitting ? 'Enviando...' : 'Enviar Examen'}
           </button>
         </div>

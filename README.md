@@ -60,6 +60,8 @@ source venv/bin/activate  # En Windows: venv\Scripts\activate
 
 # Instalar dependencias
 pip install -r requirements.txt
+python -m pip install Pillow
+python -m pip install reportlab PyPDF2
 
 # Copiar archivo de entorno
 cp ../.env.example .env

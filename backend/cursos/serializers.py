@@ -267,7 +267,7 @@ class DiplomaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Diploma
         fields = '__all__'
-        read_only_fields = ['codigo_diploma', 'fecha_emision']
+        read_only_fields = ['codigo_diploma', 'fecha_emision', 'archivo']
     
     def get_alumno_nombre(self, obj):
         return f"{obj.inscripcion.alumno.get_full_name() or obj.inscripcion.alumno.username}"

@@ -8,7 +8,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
   const [formData, setFormData] = useState({
     titulo: '',
     descripcion: '',
-    numero_preguntas: 10,
+    numero_preguntas: '',
     puntos_por_pregunta: 1,
     tiempo_limite: '',
     fecha_inicio: '',
@@ -48,7 +48,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
       setFormData({
         titulo: examen.titulo || '',
         descripcion: examen.descripcion || '',
-        numero_preguntas: examen.numero_preguntas || 10,
+        numero_preguntas: examen.numero_preguntas ?? '',
         puntos_por_pregunta: examen.puntos_por_pregunta || 1,
         tiempo_limite: examen.tiempo_limite || '',
         fecha_inicio: examen.fecha_inicio ? examen.fecha_inicio.substring(0, 16) : '',
@@ -59,7 +59,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
       setFormData({
         titulo: '',
         descripcion: '',
-        numero_preguntas: 10,
+        numero_preguntas: '',
         puntos_por_pregunta: 1,
         tiempo_limite: '',
         fecha_inicio: '',
@@ -74,10 +74,15 @@ const ExamenesSection = ({ temas, onRefresh }) => {
     if (!editingExamen) return;
 
     try {
+      const numeroPreguntas = parseInt(formData.numero_preguntas, 10);
+      if (Number.isNaN(numeroPreguntas)) {
+        alert('Debes indicar cuántas preguntas se seleccionarán del banco.');
+        return;
+      }
       const dataToSend = {
         ...formData,
         tema: editingExamen.tema.id,
-        numero_preguntas: parseInt(formData.numero_preguntas),
+        numero_preguntas: numeroPreguntas,
         puntos_por_pregunta: parseInt(formData.puntos_por_pregunta),
         tiempo_limite: formData.tiempo_limite ? parseInt(formData.tiempo_limite) : null,
       };
@@ -101,7 +106,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
     setFormData({
       titulo: '',
       descripcion: '',
-      numero_preguntas: 10,
+      numero_preguntas: '',
       puntos_por_pregunta: 1,
       tiempo_limite: '',
       fecha_inicio: '',
@@ -116,7 +121,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
         <div>
           <h2>Exámenes</h2>
           <p style={{margin: '4px 0 0 0', color: '#666', fontSize: '0.95rem'}}>
-            Cada tema tiene un examen. Se seleccionan {formData.numero_preguntas} preguntas aleatorias del banco.
+            Cada tema tiene un examen.
           </p>
         </div>
       </div>
@@ -158,11 +163,11 @@ const ExamenesSection = ({ temas, onRefresh }) => {
               <input
                 type="number"
                 value={formData.numero_preguntas}
-                onChange={(e) => setFormData({ ...formData, numero_preguntas: parseInt(e.target.value) || 10 })}
+                onChange={(e) => setFormData({ ...formData, numero_preguntas: e.target.value })}
                 min="1"
                 required
               />
-              <small>Se seleccionarán aleatoriamente del banco</small>
+              <small>Indica cuántas se seleccionarán del banco</small>
             </div>
             <div className="form-group">
               <label>Puntos por Pregunta *</label>

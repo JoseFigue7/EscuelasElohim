@@ -85,7 +85,8 @@
 }
 
 .form-group input[type="text"],
-.form-group textarea {
+.form-group textarea,
+.form-group select {
   width: 100%;
   padding: 14px 18px;
   border: 1.5px solid var(--border-color);
@@ -97,8 +98,24 @@
   color: var(--text-primary);
 }
 
+.form-group select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23334155' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 18px center;
+  padding-right: 45px;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+}
+
 .form-group input[type="text"]:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
@@ -145,6 +162,25 @@
   margin-top: 32px;
   padding-top: 32px;
   border-top: 2px solid var(--border-color-light);
+  align-items: center;
+}
+
+.form-actions .btn-primary,
+.form-actions .btn-secondary {
+  width: auto;
+  min-width: 136px;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  height: 42px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.form-actions .btn-secondary {
+  align-self: flex-end;
 }
 
 .cursos-grid {
@@ -381,6 +417,16 @@
 
   .curso-form {
     padding: 32px 28px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn-primary,
+  .form-actions .btn-secondary {
+    width: 100%;
+    min-width: 0;
   }
 
   .curso-actions {

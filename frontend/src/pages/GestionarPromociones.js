@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { promocionService, cursoService } from '../services/api';
 import './GestionarPromociones.css';
 
 const GestionarPromociones = () => {
+  const navigate = useNavigate();
   const [promociones, setPromociones] = useState([]);
   const [cursos, setCursos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,7 +226,19 @@ const GestionarPromociones = () => {
           </div>
         ) : (
           promociones.map((promocion) => (
-            <div key={promocion.id} className="promocion-card">
+            <div
+              key={promocion.id}
+              className="promocion-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/promociones/${promocion.id}/gestion`)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(`/promociones/${promocion.id}/gestion`);
+                }
+              }}
+            >
               <div className="promocion-header">
                 <div>
                   <h3>{promocion.nombre}</h3>
@@ -263,7 +276,7 @@ const GestionarPromociones = () => {
                 </p>
               </div>
 
-              <div className="promocion-actions">
+              <div className="promocion-actions" onClick={(event) => event.stopPropagation()}>
                 <Link
                   to={`/promociones/${promocion.id}/gestion`}
                   className="btn-manage"

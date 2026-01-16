@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import EditarPerfilModal from './EditarPerfilModal';
@@ -10,6 +10,21 @@ const Layout = ({ children }) => {
   const [logoError, setLogoError] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  useEffect(() => {
+    const body = document.body;
+    body.classList.remove('role-docente', 'role-alumno');
+
+    if (isDocente()) {
+      body.classList.add('role-docente');
+    } else if (isAlumno()) {
+      body.classList.add('role-alumno');
+    }
+
+    return () => {
+      body.classList.remove('role-docente', 'role-alumno');
+    };
+  }, [user, isDocente, isAlumno]);
 
   const handleLogout = () => {
     logout();

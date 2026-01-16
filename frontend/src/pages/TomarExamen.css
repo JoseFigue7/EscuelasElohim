@@ -132,6 +132,11 @@
   gap: 16px;
 }
 
+.btn-examen-submit {
+  padding: 10px 22px;
+  font-size: 15px;
+}
+
 .examen-info {
   display: flex;
   gap: 24px;
