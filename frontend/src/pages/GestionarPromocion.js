@@ -19,6 +19,8 @@ const GestionarPromocion = () => {
   const [showEditPromocion, setShowEditPromocion] = useState(false);
   const [diplomas, setDiplomas] = useState([]);
   const [diplomasLoading, setDiplomasLoading] = useState(false);
+  const [diplomaWarnings, setDiplomaWarnings] = useState([]);
+  const [diplomaInfo, setDiplomaInfo] = useState('');
   const [promedios, setPromedios] = useState([]);
   const [promediosLoading, setPromediosLoading] = useState(false);
   const [editPromocion, setEditPromocion] = useState({
@@ -35,7 +37,6 @@ const GestionarPromocion = () => {
     fecha_clase: '',
   });
   const [selectedAlumno, setSelectedAlumno] = useState('');
-  const CORDERITOS_CURSO = 'Escuela de Corderitos';
 
   useEffect(() => {
     loadData();
@@ -58,31 +59,6 @@ const GestionarPromocion = () => {
     return `${baseUrl}${archivo.startsWith('/') ? '' : '/'}${archivo}`;
   };
 
-  const getCorderitosDiplomaUrl = () => {
-    const baseUrl = process.env.PUBLIC_URL || '';
-    const fileName = encodeURIComponent('Escuela de corderitos diploma.pdf');
-    return `${baseUrl}/images/${fileName}`;
-  };
-
-  const normalizeText = (value) => (value || '').toString().trim().toLowerCase();
-  const isCursoCorderitos = (value) =>
-    normalizeText(value).includes(normalizeText(CORDERITOS_CURSO));
-
-  const handleDescargarDiplomaCorderitos = (alumnoNombre) => {
-    try {
-      const templateUrl = getCorderitosDiplomaUrl();
-      const safeNombre = alumnoNombre || 'Alumno';
-      const link = document.createElement('a');
-      link.href = templateUrl;
-      link.download = `Diploma - ${safeNombre}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error('Error al descargar diploma de Corderitos:', err);
-      alert(`No se pudo descargar el diploma. ${err?.message || ''}`.trim());
-    }
-  };
 
   const loadData = async () => {
     try {
@@ -143,6 +119,34 @@ const GestionarPromocion = () => {
     }
   };
 
+  const handleToggleInscripcion = async (inscripcion) => {
+    const accion = inscripcion.activa ? 'inactivar' : 'activar';
+    const confirmacion = window.confirm(
+      `¿Estás seguro que quieres ${accion} la inscripción de este alumno al curso?`
+    );
+    if (!confirmacion) {
+      return;
+    }
+    try {
+      await inscripcionService.update(inscripcion.id, { activa: !inscripcion.activa });
+      loadData();
+    } catch (err) {
+      alert('Error al actualizar inscripción: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleEliminarInscripcion = async (inscripcion) => {
+    if (!window.confirm('¿Estás seguro que quieres eliminar a este alumno del curso?')) {
+      return;
+    }
+    try {
+      await inscripcionService.delete(inscripcion.id);
+      loadData();
+    } catch (err) {
+      alert('Error al eliminar inscripción: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
   const handleCalcularPromedios = async () => {
     if (!window.confirm('¿Calcular promedios para todos los estudiantes de esta promoción?')) {
       return;
@@ -164,6 +168,26 @@ const GestionarPromocion = () => {
     try {
       const response = await diplomaService.generarDiplomas(id);
       alert(response.data.mensaje);
+      setDiplomaWarnings(Array.isArray(response.data.advertencias) ? response.data.advertencias : []);
+      const diplomasRespuesta = Array.isArray(response.data.diplomas) ? response.data.diplomas : [];
+      const creados = diplomasRespuesta.filter((item) => item?.creado).length;
+      const totalAprobados = diplomasRespuesta.length;
+      const totalConArchivo = diplomasRespuesta.filter((item) => item?.archivo).length;
+      if (creados === 0) {
+        if (totalAprobados === 0) {
+          setDiplomaInfo('No hay alumnos aprobados (>= 80%) para generar diplomas.');
+        } else if (totalConArchivo > 0) {
+          setDiplomaInfo(
+            `Ya existen ${totalConArchivo} diplomas generados. Usa "Descargar" en la tabla.`
+          );
+        } else {
+          setDiplomaInfo(
+            'No se generaron archivos para los aprobados. Revisa los avisos o el servidor.'
+          );
+        }
+      } else {
+        setDiplomaInfo('');
+      }
       if (Array.isArray(response.data.diplomas)) {
         setDiplomas(response.data.diplomas);
       } else {
@@ -177,6 +201,7 @@ const GestionarPromocion = () => {
         err.message ||
         'Error al generar diplomas';
       alert(`Error al generar diplomas: ${detail}`);
+      setDiplomaInfo('');
     }
   };
 
@@ -560,25 +585,51 @@ const GestionarPromocion = () => {
             </form>
           )}
 
-          <div className="alumnos-list">
-            {inscripciones.map((inscripcion) => (
-              <div key={inscripcion.id} className="alumno-item">
-                <div>
-                  <h3>{inscripcion.alumno_nombre}</h3>
-                  <p>
-                    Fecha de inscripción:{' '}
-                    {new Date(inscripcion.fecha_inscripcion).toLocaleDateString()}
-                  </p>
-                </div>
-                <span className={`badge ${inscripcion.activa ? 'active' : 'inactive'}`}>
-                  {inscripcion.activa ? 'Activa' : 'Inactiva'}
-                </span>
-              </div>
-            ))}
-            {inscripciones.length === 0 && (
-              <p className="empty-state">No hay alumnos inscritos.</p>
-            )}
-          </div>
+          {inscripciones.length === 0 ? (
+            <p className="empty-state">No hay alumnos inscritos.</p>
+          ) : (
+            <div className="promedios-table-wrapper">
+              <table className="promedios-table">
+                <thead>
+                  <tr>
+                    <th>Alumno</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inscripciones.map((inscripcion) => (
+                    <tr key={inscripcion.id}>
+                      <td>{inscripcion.alumno_nombre || 'Alumno'}</td>
+                      <td>
+                        <span className={`badge ${inscripcion.activa ? 'active' : 'inactive'}`}>
+                          {inscripcion.activa ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => handleToggleInscripcion(inscripcion)}
+                          >
+                            {inscripcion.activa ? 'Inactivar' : 'Activar'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-delete"
+                            onClick={() => handleEliminarInscripcion(inscripcion)}
+                          >
+                            Borrar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -613,6 +664,23 @@ const GestionarPromocion = () => {
             Calcula los promedios finales de todos los estudiantes. Los que tengan promedio &ge; 80%
             serán considerados aprobados y podrán recibir su diploma.
           </p>
+          {diplomaWarnings.length > 0 && (
+            <div className="info-text" style={{ color: '#9c6b00' }}>
+              <strong>Advertencias al generar diplomas:</strong>
+              <ul style={{ marginTop: '8px' }}>
+                {diplomaWarnings.map((item, idx) => (
+                  <li key={`${item.alumno}-${idx}`}>
+                    {item.alumno || 'Alumno'} — {item.detalle || 'Sin detalle'}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {diplomaWarnings.length === 0 && diplomaInfo && (
+            <div className="info-text" style={{ color: '#9c6b00' }}>
+              {diplomaInfo}
+            </div>
+          )}
 
           <div className="promedios-table-section">
             <h3>Promedios por alumno</h3>
@@ -647,8 +715,7 @@ const GestionarPromocion = () => {
                         promocion?.curso_nombre ||
                         promocion?.curso?.nombre ||
                         '';
-                      const esCorderitos = isCursoCorderitos(cursoNombre);
-                      const diploma = diplomasByInscripcion.get(inscripcion.id);
+                      const diploma = diplomasByInscripcion.get(String(inscripcion.id));
                       const archivoUrl = resolveDiplomaUrl(diploma?.archivo);
                       const puedeDescargar = Boolean(promedio?.aprobado);
 
@@ -665,15 +732,7 @@ const GestionarPromocion = () => {
                           <td>{fechaCalculo || 'Sin cálculo'}</td>
                           <td>
                             {puedeDescargar ? (
-                              esCorderitos ? (
-                                <button
-                                  className="btn-secondary"
-                                  type="button"
-                                  onClick={() => handleDescargarDiplomaCorderitos(alumnoNombre)}
-                                >
-                                  Descargar
-                                </button>
-                              ) : archivoUrl ? (
+                              archivoUrl ? (
                                 <a
                                   className="btn-secondary"
                                   href={archivoUrl}

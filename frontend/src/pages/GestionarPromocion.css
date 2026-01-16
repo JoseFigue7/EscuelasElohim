@@ -649,7 +649,7 @@
 }
 
 .btn-secondary {
-  background: var(--gray-100);
+  background: #cbd5e1;
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   padding: 12px 24px;
@@ -662,7 +662,7 @@
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--gray-200);
+  background: #c1cddd;
   border-color: var(--border-color-dark);
   transform: translateY(-1px);
   text-decoration: none;
@@ -729,7 +729,12 @@
 }
 
 .table-actions .btn-secondary {
-  padding: 8px 16px;
+  padding: 10px 18px;
+  background: #d3d3d3;
+}
+
+.table-actions .btn-delete {
+  padding: 10px 6px;
 }
 
 @media (max-width: 640px) {

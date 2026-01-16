@@ -75,7 +75,25 @@ const GestionarUsuarios = () => {
         loadUsuarios();
       }
     } catch (err) {
-      alert('Error al guardar usuario: ' + (err.response?.data?.detail || err.message));
+      const data = err.response?.data;
+      let message = err.message;
+      if (data) {
+        if (typeof data === 'string') {
+          message = data;
+        } else if (data.detail) {
+          message = data.detail;
+        } else if (Array.isArray(data)) {
+          message = data.join(', ');
+        } else {
+          message = Object.entries(data)
+            .map(([field, value]) => {
+              const text = Array.isArray(value) ? value.join(', ') : value;
+              return `${field}: ${text}`;
+            })
+            .join(' | ');
+        }
+      }
+      alert('Error al guardar usuario: ' + message);
     }
   };
 

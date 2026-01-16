@@ -688,7 +688,14 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre):
             'font_size': 48,
             'y_ratio': 0.54,
             'max_width_ratio': 0.75,
-        }
+        },
+        'escuela de doctrina intermedia': {
+            'template_filename': 'Diplomas Doctrina Intermedia.pdf',
+            'text_color': '#1f3b5a',
+            'font_size': 48,
+            'y_ratio': 0.54,
+            'max_width_ratio': 0.75,
+        },
     }
     normalized_course = _normalize_course_name(curso_nombre)
     if normalized_course not in template_map:

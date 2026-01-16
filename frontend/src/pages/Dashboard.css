@@ -154,32 +154,34 @@
 }
 
 .card-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid var(--border-color);
-  flex-wrap: wrap;
 }
 
 .btn-manage,
 .btn-toggle,
 .btn-edit,
 .btn-delete {
-  padding: 10px 18px;
+  padding: 10px 14px;
   border: none;
   border-radius: var(--radius-lg);
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   transition: all var(--transition-base);
-  flex: 1;
-  min-width: 100px;
+  width: 100%;
+  min-height: 40px;
+  min-width: 0;
   box-shadow: var(--shadow-sm);
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
 }
 
 .btn-manage:hover:not(:disabled),
@@ -309,6 +311,20 @@
   }
 }
 
+@media (max-width: 1057px) and (max-height: 669px) {
+  .card-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .btn-manage,
+  .btn-toggle,
+  .btn-edit,
+  .btn-delete {
+    width: 100%;
+    min-height: 40px;
+  }
+}
+
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;
@@ -336,7 +352,7 @@
   }
 
   .card-actions {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .btn-manage,

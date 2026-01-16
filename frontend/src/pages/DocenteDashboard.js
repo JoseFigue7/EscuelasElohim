@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { promocionService, cursoService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './Dashboard.css';
 
 const DocenteDashboard = () => {
+  const navigate = useNavigate();
   const [promociones, setPromociones] = useState([]);
   const [cursos, setCursos] = useState([]);
   const [loading, setLoading] = useState(true);

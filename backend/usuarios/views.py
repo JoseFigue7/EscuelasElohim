@@ -55,13 +55,25 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            # Solo admin puede crear/editar usuarios
+        if self.action == 'create':
+            # Docentes pueden crear alumnos; admin puede crear cualquier usuario
+            return [permissions.IsAuthenticated()]
+        if self.action in ['update', 'partial_update', 'destroy']:
+            # Solo admin puede editar/eliminar usuarios
             return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
         return [permissions.IsAuthenticated()]
     
     def create(self, request, *args, **kwargs):
         """Crear usuario con contraseña eclesiástica generada automáticamente"""
+        user = request.user
+        if user.tipo == 'docente':
+            tipo_solicitado = request.data.get('tipo')
+            if tipo_solicitado != 'alumno':
+                return Response(
+                    {'detail': 'Solo puedes crear usuarios tipo alumno.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         

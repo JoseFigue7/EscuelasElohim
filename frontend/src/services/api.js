@@ -159,6 +159,7 @@ export const inscripcionService = {
   getById: (id) => api.get(`/inscripciones/${id}/`),
   create: (data) => api.post('/inscripciones/', data),
   update: (id, data) => api.patch(`/inscripciones/${id}/`, data),
+  delete: (id) => api.delete(`/inscripciones/${id}/`),
 };
 
 // Servicio de Asistencias
