@@ -31,12 +31,13 @@ const GestionarPromocion = () => {
     activa: true,
   });
   const [newTema, setNewTema] = useState({
-    numero_tema: '',
     titulo: '',
     descripcion: '',
     fecha_clase: '',
   });
   const [selectedAlumno, setSelectedAlumno] = useState('');
+  const [alumnoSearch, setAlumnoSearch] = useState('');
+  const [temaSearch, setTemaSearch] = useState('');
 
   useEffect(() => {
     loadData();
@@ -44,7 +45,7 @@ const GestionarPromocion = () => {
 
   useEffect(() => {
     if (activeTab === 'promedios') {
-      loadPromedios();
+      loadPromedios({ calcular: true, silent: true });
       loadDiplomas();
     }
   }, [activeTab, id]);
@@ -57,6 +58,11 @@ const GestionarPromocion = () => {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
     const baseUrl = apiUrl.replace(/\/api\/?$/, '');
     return `${baseUrl}${archivo.startsWith('/') ? '' : '/'}${archivo}`;
+  };
+
+  const safeFilenamePart = (value) => {
+    if (!value) return '';
+    return value.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 120);
   };
 
 
@@ -91,7 +97,7 @@ const GestionarPromocion = () => {
       const cursoId = promocion.curso;
       await temaService.create({ ...newTema, curso: cursoId });
       setShowNewTema(false);
-      setNewTema({ numero_tema: '', titulo: '', descripcion: '', fecha_clase: '' });
+      setNewTema({ titulo: '', descripcion: '', fecha_clase: '' });
       loadData();
     } catch (err) {
       console.error('Error completo:', err.response?.data);
@@ -122,7 +128,8 @@ const GestionarPromocion = () => {
   const handleToggleInscripcion = async (inscripcion) => {
     const accion = inscripcion.activa ? 'inactivar' : 'activar';
     const confirmacion = window.confirm(
-      `¿Estás seguro que quieres ${accion} la inscripción de este alumno al curso?`
+      `¿Estás seguro que quieres ${accion} la inscripción de este alumno en esta promoción? ` +
+        'Esto solo afecta esta promoción y no inactiva la cuenta del alumno.'
     );
     if (!confirmacion) {
       return;
@@ -147,27 +154,12 @@ const GestionarPromocion = () => {
     }
   };
 
-  const handleCalcularPromedios = async () => {
-    if (!window.confirm('¿Calcular promedios para todos los estudiantes de esta promoción?')) {
-      return;
-    }
-    try {
-      await promedioService.calcularPromedios(id);
-      alert('Promedios calculados correctamente');
-      loadData();
-      loadPromedios();
-    } catch (err) {
-      alert('Error al calcular promedios');
-    }
-  };
-
-  const handleGenerarDiplomas = async () => {
-    if (!window.confirm('¿Generar diplomas para estudiantes aprobados (>=80%)?')) {
-      return;
-    }
+  const generarDiplomasPromocion = async ({ showAlert = true } = {}) => {
     try {
       const response = await diplomaService.generarDiplomas(id);
-      alert(response.data.mensaje);
+      if (showAlert) {
+        alert(response.data.mensaje);
+      }
       setDiplomaWarnings(Array.isArray(response.data.advertencias) ? response.data.advertencias : []);
       const diplomasRespuesta = Array.isArray(response.data.diplomas) ? response.data.diplomas : [];
       const creados = diplomasRespuesta.filter((item) => item?.creado).length;
@@ -178,7 +170,7 @@ const GestionarPromocion = () => {
           setDiplomaInfo('No hay alumnos aprobados (>= 80%) para generar diplomas.');
         } else if (totalConArchivo > 0) {
           setDiplomaInfo(
-            `Ya existen ${totalConArchivo} diplomas generados. Usa "Descargar" en la tabla.`
+            `Ya existen ${totalConArchivo} diplomas generados. Se iniciará la descarga.`
           );
         } else {
           setDiplomaInfo(
@@ -190,9 +182,9 @@ const GestionarPromocion = () => {
       }
       if (Array.isArray(response.data.diplomas)) {
         setDiplomas(response.data.diplomas);
-      } else {
-        loadDiplomas();
+        return response.data.diplomas;
       }
+      return null;
     } catch (err) {
       const detail =
         err.response?.data?.error ||
@@ -202,6 +194,7 @@ const GestionarPromocion = () => {
         'Error al generar diplomas';
       alert(`Error al generar diplomas: ${detail}`);
       setDiplomaInfo('');
+      throw err;
     }
   };
 
@@ -209,17 +202,129 @@ const GestionarPromocion = () => {
     setDiplomasLoading(true);
     try {
       const response = await diplomaService.getAll(id);
-      setDiplomas(response.data.results || response.data);
+      const data = response.data.results || response.data;
+      setDiplomas(data);
+      return data;
     } catch (err) {
       console.error('Error al cargar diplomas:', err);
       setDiplomas([]);
+      return [];
     } finally {
       setDiplomasLoading(false);
     }
   };
 
-  const loadPromedios = async () => {
+  const handleDescargarDiploma = async ({ inscripcionId, alumnoNombre, cursoNombre }) => {
+    let diploma = diplomasByInscripcion.get(String(inscripcionId));
+    let archivoUrl = resolveDiplomaUrl(diploma?.archivo);
+    let diplomaId = diploma?.id;
+    if (!archivoUrl) {
+      try {
+        const diplomasGenerados = await generarDiplomasPromocion({ showAlert: false });
+        const updatedDiplomas = diplomasGenerados || (await loadDiplomas());
+        const updatedDiploma = updatedDiplomas.find(
+          (item) => String(item?.inscripcion?.id ?? item?.inscripcion) === String(inscripcionId)
+        );
+        archivoUrl = resolveDiplomaUrl(updatedDiploma?.archivo);
+        diplomaId = updatedDiploma?.id ?? diplomaId;
+      } catch (err) {
+        return;
+      }
+    }
+    if (!archivoUrl) {
+      alert('El diploma aún no está disponible para descargar.');
+      return;
+    }
+    const alumnoSafe = safeFilenamePart(alumnoNombre) || 'alumno';
+    const cursoSafe = safeFilenamePart(cursoNombre) || 'curso';
+    const downloadFilename = `Diploma_${alumnoSafe}_${cursoSafe}.pdf`;
+    try {
+      if (diplomaId) {
+        const response = await diplomaService.descargarPdf(diplomaId);
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = downloadFilename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+    } catch (err) {
+      // Fallback to direct URL
+    }
+    const link = document.createElement('a');
+    link.href = archivoUrl;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.download = downloadFilename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleDescargarDiplomasMasivo = async () => {
+    const aprobados = filasPromedios.filter(({ promedio }) => Boolean(promedio?.aprobado));
+    if (aprobados.length === 0) {
+      alert('No hay alumnos aprobados (>= 80%) para descargar diplomas.');
+      return;
+    }
+    if (aprobados.length === 1) {
+      const { inscripcion, promedio } = aprobados[0];
+      const alumnoNombre =
+        inscripcion?.alumno_nombre || promedio?.alumno_nombre || 'Alumno';
+      const cursoNombre =
+        inscripcion?.curso_nombre ||
+        inscripcion?.curso?.nombre ||
+        promocion?.curso_nombre ||
+        promocion?.curso?.nombre ||
+        '';
+      await handleDescargarDiploma({ inscripcionId: inscripcion.id, alumnoNombre, cursoNombre });
+      return;
+    }
+    try {
+      const response = await diplomaService.descargarZip(id);
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const promocionSafe = safeFilenamePart(promocion?.nombre) || `promocion_${id}`;
+      link.download = `Diplomas_${promocionSafe}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.error) {
+            alert(parsed.error);
+            return;
+          }
+        } catch (parseError) {
+          // Ignore parse errors and fallback to generic message
+        }
+      }
+      alert('No se pudo descargar el ZIP de diplomas.');
+      return;
+    }
+  };
+
+  const loadPromedios = async ({ calcular = false, silent = false } = {}) => {
     setPromediosLoading(true);
+    let calcularError = null;
+    if (calcular) {
+      try {
+        await promedioService.calcularPromedios(id);
+      } catch (err) {
+        calcularError = err;
+        console.error('Error al calcular promedios:', err);
+      }
+    }
     try {
       const response = await promedioService.getAll(id);
       setPromedios(response.data.results || response.data);
@@ -228,6 +333,13 @@ const GestionarPromocion = () => {
       setPromedios([]);
     } finally {
       setPromediosLoading(false);
+    }
+    if (calcular && !silent) {
+      if (calcularError) {
+        alert('Error al calcular promedios');
+      } else {
+        alert('Promedios calculados correctamente');
+      }
     }
   };
 
@@ -327,6 +439,22 @@ const GestionarPromocion = () => {
     if (!value) return null;
     return new Date(value).toLocaleString('es-ES');
   };
+  const normalizedTemaSearch = temaSearch.trim().toLowerCase();
+  const filteredTemas = temas.filter((tema) =>
+    (tema.titulo || '').toLowerCase().includes(normalizedTemaSearch)
+  );
+  const hasTemaSearch = normalizedTemaSearch.length > 0;
+  const normalizedAlumnoSearch = alumnoSearch.trim().toLowerCase();
+  const filteredInscripciones = inscripciones.filter((inscripcion) => {
+    if (!normalizedAlumnoSearch) return true;
+    const alumnoNombre = (inscripcion.alumno_nombre || '').toLowerCase();
+    const alumnoUsername = (inscripcion.alumno_username || '').toLowerCase();
+    return (
+      alumnoNombre.includes(normalizedAlumnoSearch) ||
+      alumnoUsername.includes(normalizedAlumnoSearch)
+    );
+  });
+  const hasAlumnoSearch = normalizedAlumnoSearch.length > 0;
 
   return (
     <div className="gestionar-promocion">
@@ -473,9 +601,31 @@ const GestionarPromocion = () => {
                 </p>
               )}
             </div>
-            <button onClick={() => setShowNewTema(!showNewTema)} className="btn-primary">
-              {showNewTema ? 'Cancelar' : '+ Nuevo Tema'}
-            </button>
+          </div>
+
+          <div className="temas-toolbar">
+            <div className="temas-toolbar-left">
+              <div className="temas-search">
+                <input
+                  type="text"
+                  placeholder="Buscar tema por nombre..."
+                  value={temaSearch}
+                  onChange={(e) => setTemaSearch(e.target.value)}
+                  className="temas-search-input"
+                  aria-label="Buscar tema por nombre"
+                />
+                {hasTemaSearch && (
+                  <span className="temas-search-count">
+                    {filteredTemas.length} resultado{filteredTemas.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="temas-toolbar-right">
+              <button onClick={() => setShowNewTema(!showNewTema)} className="btn-primary">
+                {showNewTema ? 'Cancelar' : '+ Nuevo Tema'}
+              </button>
+            </div>
           </div>
 
           {showNewTema && (
@@ -486,15 +636,6 @@ const GestionarPromocion = () => {
                 </small>
               </div>
               <div className="form-row">
-                <div className="form-group">
-                  <label>Número de Tema *</label>
-                  <input
-                    type="number"
-                    value={newTema.numero_tema}
-                    onChange={(e) => setNewTema({ ...newTema, numero_tema: e.target.value })}
-                    required
-                  />
-                </div>
                 <div className="form-group">
                   <label>Fecha de Clase</label>
                   <input
@@ -526,7 +667,7 @@ const GestionarPromocion = () => {
           )}
 
           <div className="temas-list">
-            {temas.map((tema) => (
+            {filteredTemas.map((tema) => (
               <Link
                 key={tema.id}
                 to={`/promociones/${id}/temas/${tema.id}`}
@@ -549,6 +690,11 @@ const GestionarPromocion = () => {
                 </p>
               </div>
             )}
+            {temas.length > 0 && hasTemaSearch && filteredTemas.length === 0 && (
+              <div className="empty-state">
+                <p>No hay temas que coincidan con tu búsqueda.</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -557,9 +703,29 @@ const GestionarPromocion = () => {
         <div className="alumnos-section">
           <div className="section-header">
             <h2>Alumnos Inscritos</h2>
-            <button onClick={() => setShowNewInscripcion(!showNewInscripcion)} className="btn-primary">
-              {showNewInscripcion ? 'Cancelar' : '+ Inscribir Alumno'}
-            </button>
+          </div>
+          <p className="info-text">
+            Inactivar una inscripción solo aplica a esta promoción; la cuenta del alumno permanece activa.
+          </p>
+
+          <div className="section-toolbar">
+            <div className="section-toolbar-left">
+              <div className="temas-search">
+                <input
+                  type="text"
+                  placeholder="Buscar alumno por nombre..."
+                  value={alumnoSearch}
+                  onChange={(e) => setAlumnoSearch(e.target.value)}
+                  className="temas-search-input"
+                  aria-label="Buscar alumno por nombre"
+                />
+              </div>
+            </div>
+            <div className="section-toolbar-right">
+              <button onClick={() => setShowNewInscripcion(!showNewInscripcion)} className="btn-primary">
+                {showNewInscripcion ? 'Cancelar' : '+ Inscribir Alumno'}
+              </button>
+            </div>
           </div>
 
           {showNewInscripcion && (
@@ -593,14 +759,20 @@ const GestionarPromocion = () => {
                 <thead>
                   <tr>
                     <th>Alumno</th>
-                    <th>Estado</th>
+                    <th>Estado cuenta</th>
+                    <th>Estado inscripción</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {inscripciones.map((inscripcion) => (
+                  {filteredInscripciones.map((inscripcion) => (
                     <tr key={inscripcion.id}>
                       <td>{inscripcion.alumno_nombre || 'Alumno'}</td>
+                      <td>
+                        <span className={`badge ${inscripcion.alumno_activo ? 'active' : 'inactive'}`}>
+                          {inscripcion.alumno_activo ? 'Activa' : 'Inactiva'}
+                        </span>
+                      </td>
                       <td>
                         <span className={`badge ${inscripcion.activa ? 'active' : 'inactive'}`}>
                           {inscripcion.activa ? 'Activo' : 'Inactivo'}
@@ -613,7 +785,7 @@ const GestionarPromocion = () => {
                             className="btn-secondary"
                             onClick={() => handleToggleInscripcion(inscripcion)}
                           >
-                            {inscripcion.activa ? 'Inactivar' : 'Activar'}
+                            {inscripcion.activa ? 'Inactivar inscripción' : 'Activar inscripción'}
                           </button>
                           <button
                             type="button"
@@ -628,6 +800,11 @@ const GestionarPromocion = () => {
                   ))}
                 </tbody>
               </table>
+              {hasAlumnoSearch && filteredInscripciones.length === 0 && (
+                <div className="empty-state" style={{ marginTop: '16px' }}>
+                  <p>No hay alumnos que coincidan con tu búsqueda.</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -652,11 +829,8 @@ const GestionarPromocion = () => {
           <div className="section-header">
             <h2>Promedios y Diplomas</h2>
             <div className="action-buttons">
-              <button onClick={handleCalcularPromedios} className="btn-secondary">
-                Calcular Promedios
-              </button>
-              <button onClick={handleGenerarDiplomas} className="btn-primary">
-                Generar Diplomas
+              <button onClick={handleDescargarDiplomasMasivo} className="btn-primary">
+                Descargar Diplomas
               </button>
             </div>
           </div>
@@ -705,7 +879,10 @@ const GestionarPromocion = () => {
                   </thead>
                   <tbody>
                     {filasPromedios.map(({ inscripcion, promedio }) => {
-                      const promedioFinal = formatPromedio(promedio?.promedio_final);
+                      const promedioFinalValue = Number.parseFloat(promedio?.promedio_final);
+                      const promedioFinal = Number.isFinite(promedioFinalValue)
+                        ? promedioFinalValue.toFixed(2)
+                        : null;
                       const fechaCalculo = formatFecha(promedio?.fecha_calculo);
                       const alumnoNombre =
                         inscripcion?.alumno_nombre || promedio?.alumno_nombre || 'Alumno';
@@ -717,45 +894,39 @@ const GestionarPromocion = () => {
                         '';
                       const diploma = diplomasByInscripcion.get(String(inscripcion.id));
                       const archivoUrl = resolveDiplomaUrl(diploma?.archivo);
-                      const puedeDescargar = Boolean(promedio?.aprobado);
+                      const aprobado = Number.isFinite(promedioFinalValue)
+                        ? (typeof promedio?.aprobado === 'boolean'
+                            ? promedio.aprobado
+                            : promedioFinalValue >= 80)
+                        : false;
+                      const puedeDescargar = aprobado;
 
                       return (
                         <tr key={inscripcion.id}>
                           <td>{alumnoNombre}</td>
                           <td>{cursoNombre}</td>
-                          <td>{promedioFinal ? `${promedioFinal}%` : 'Sin calcular'}</td>
+                          <td>{promedioFinal !== null ? `${promedioFinal}%` : 'Sin calcular'}</td>
                           <td>
-                            <span className={`badge ${promedio?.aprobado ? 'active' : 'inactive'}`}>
-                              {promedio ? (promedio.aprobado ? 'Aprobado' : 'Reprobado') : 'Sin promedio'}
+                            <span className={`badge ${aprobado ? 'active' : 'inactive'}`}>
+                              {promedio ? (aprobado ? 'Aprobado' : 'Reprobado') : 'Sin promedio'}
                             </span>
                           </td>
                           <td>{fechaCalculo || 'Sin cálculo'}</td>
                           <td>
-                            {puedeDescargar ? (
-                              archivoUrl ? (
-                                <a
-                                  className="btn-secondary"
-                                  href={archivoUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  download
-                                >
-                                  Descargar
-                                </a>
-                              ) : (
-                                <button
-                                  className="btn-secondary"
-                                  type="button"
-                                  onClick={() => alert('El diploma aún no está disponible para descargar.')}
-                                >
-                                  Descargar
-                                </button>
-                              )
-                            ) : (
-                              <button className="btn-secondary" type="button" disabled>
-                                Descargar
-                              </button>
-                            )}
+                            <button
+                              className="btn-secondary"
+                              type="button"
+                              disabled={!puedeDescargar}
+                              onClick={() =>
+                                handleDescargarDiploma({
+                                  inscripcionId: inscripcion.id,
+                                  alumnoNombre,
+                                  cursoNombre,
+                                })
+                              }
+                            >
+                              Descargar
+                            </button>
                           </td>
                         </tr>
                       );

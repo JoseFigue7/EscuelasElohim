@@ -29,9 +29,10 @@ const Calificaciones = () => {
     }
   };
 
-  const getCalificacionClass = (porcentaje) => {
-    if (porcentaje >= 70) return 'aprobado';
-    if (porcentaje >= 50) return 'regular';
+  const getCalificacionClass = (calificacion) => {
+    if (calificacion?.aprobado === true) return 'aprobado';
+    const porcentaje = parseFloat(calificacion?.porcentaje);
+    if (Number.isFinite(porcentaje) && porcentaje >= 50) return 'regular';
     return 'reprobado';
   };
 
@@ -56,11 +57,23 @@ const Calificaciones = () => {
           {calificaciones.map((calificacion) => (
             <div
               key={calificacion.id}
-              className={`calificacion-card ${getCalificacionClass(
-                parseFloat(calificacion.porcentaje)
-              )}`}
+              className={`calificacion-card ${getCalificacionClass(calificacion)}`}
             >
               <h3>{calificacion.examen_titulo}</h3>
+              <div className="calificacion-meta">
+                <div className="meta-item">
+                  <span className="label">Promoción:</span>
+                  <span className="value">
+                    {calificacion.promocion_nombre || 'Sin promoción'}
+                  </span>
+                </div>
+                <div className="meta-item">
+                  <span className="label">Tema:</span>
+                  <span className="value">
+                    {calificacion.tema_titulo || 'Sin tema'}
+                  </span>
+                </div>
+              </div>
               <div className="calificacion-details">
                 <div className="puntaje">
                   <span className="label">Puntaje:</span>

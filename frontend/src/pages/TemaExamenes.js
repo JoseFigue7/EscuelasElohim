@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { examenService } from '../services/api';
 import './TemaExamenes.css';
 
 const TemaExamenes = () => {
   const { id } = useParams();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const promocionId = searchParams.get('promocion');
   const [examenes, setExamenes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,7 +54,12 @@ const TemaExamenes = () => {
 
   return (
     <div className="tema-examenes">
-      <Link to="/" className="back-link">← Volver a mis cursos</Link>
+      <Link
+        to={promocionId ? `/promociones/${promocionId}` : '/'}
+        className="back-link"
+      >
+        ← Volver a mis cursos
+      </Link>
       <h1>Exámenes</h1>
 
       <div className="examenes-list">
@@ -80,7 +88,10 @@ const TemaExamenes = () => {
               </div>
 
               {disponible ? (
-                <Link to={`/examenes/${examen.id}`} className="btn-tomar-examen">
+                <Link
+                  to={`/examenes/${examen.id}${promocionId ? `?promocion=${promocionId}` : ''}`}
+                  className="btn-tomar-examen"
+                >
                   Tomar Examen
                 </Link>
               ) : (
