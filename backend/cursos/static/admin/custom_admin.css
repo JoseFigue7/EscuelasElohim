@@ -1,0 +1,190 @@
+:root {
+  --admin-bg: #f4f6fb;
+  --admin-card: #ffffff;
+  --admin-primary: #3b5bdb;
+  --admin-primary-dark: #2f49b4;
+  --admin-accent: #ffb703;
+  --admin-text: #1f2a44;
+  --admin-muted: #6b7280;
+  --admin-border: #e5e7eb;
+  --admin-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+body {
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+#header {
+  background: linear-gradient(120deg, #1e3a8a 0%, #3b5bdb 100%);
+  border-bottom: none;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+}
+
+#branding #site-name {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  background: #ffffff;
+  color: #1e3a8a;
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+}
+
+.brand-subtitle {
+  font-weight: 500;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-left: 6px;
+}
+
+#user-tools {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+#user-tools a {
+  color: #ffffff;
+}
+
+#content {
+  padding: 24px 32px;
+}
+
+#nav-sidebar {
+  background: var(--admin-card);
+  border-right: 1px solid var(--admin-border);
+  box-shadow: 6px 0 20px rgba(15, 23, 42, 0.05);
+}
+
+#nav-sidebar .module th {
+  background: transparent;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+#nav-sidebar a {
+  color: var(--admin-text);
+}
+
+.module,
+.inline-group,
+.dashboard-module,
+.results,
+.app-usuarios .module,
+.app-cursos .module {
+  background: var(--admin-card);
+  border-radius: 16px;
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow);
+}
+
+.module h2,
+.dashboard-module h2 {
+  background: transparent;
+  color: var(--admin-text);
+  padding: 16px 18px 8px;
+  font-size: 16px;
+}
+
+.module table,
+.results table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.module table th,
+.results table th {
+  background: #f3f4f6;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.module table tr:nth-child(even),
+.results table tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+.submit-row {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.submit-row input,
+.submit-row a.button,
+input[type="submit"],
+button,
+.button {
+  background: var(--admin-primary);
+  border: none;
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 600;
+  box-shadow: 0 8px 16px rgba(59, 91, 219, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.submit-row input:hover,
+.submit-row a.button:hover,
+input[type="submit"]:hover,
+button:hover,
+.button:hover {
+  background: var(--admin-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(59, 91, 219, 0.3);
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="url"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea {
+  border-radius: 10px;
+  border: 1px solid var(--admin-border);
+  padding: 10px 12px;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.object-tools a {
+  background: var(--admin-accent);
+  color: #1f2a44;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.object-tools a:hover {
+  background: #ffbe1a;
+}
+
+.breadcrumbs {
+  background: transparent;
+  padding: 0 0 12px;
+  color: var(--admin-muted);
+}
+
+.login #container {
+  background: var(--admin-card);
+  border-radius: 20px;
+  box-shadow: var(--admin-shadow);
+  border: 1px solid var(--admin-border);
+}
+
+.login #header {
+  border-radius: 20px 20px 0 0;
+}
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { calificacionService } from '../services/api';
 import './Calificaciones.css';
@@ -10,14 +10,9 @@ const Calificaciones = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadCalificaciones();
-  }, [examenId]);
-
-  const loadCalificaciones = async () => {
+  const loadCalificaciones = useCallback(async () => {
     try {
       setLoading(true);
-      const params = examenId ? { examen: examenId } : {};
       const response = await calificacionService.getAll(examenId);
       setCalificaciones(response.data.results || response.data);
       setError('');
@@ -27,7 +22,11 @@ const Calificaciones = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [examenId]);
+
+  useEffect(() => {
+    loadCalificaciones();
+  }, [loadCalificaciones]);
 
   const getCalificacionClass = (calificacion) => {
     if (calificacion?.aprobado === true) return 'aprobado';

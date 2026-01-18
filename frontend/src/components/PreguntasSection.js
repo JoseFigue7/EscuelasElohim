@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { preguntaService } from '../services/api';
 
 const PreguntasSection = ({ temas, onRefresh }) => {
@@ -18,13 +18,7 @@ const PreguntasSection = ({ temas, onRefresh }) => {
     puntos: 1,
   });
 
-  useEffect(() => {
-    if (selectedTema) {
-      loadPreguntas();
-    }
-  }, [selectedTema]);
-
-  const loadPreguntas = async () => {
+  const loadPreguntas = useCallback(async () => {
     if (!selectedTema) return;
     try {
       setLoading(true);
@@ -36,7 +30,13 @@ const PreguntasSection = ({ temas, onRefresh }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedTema]);
+
+  useEffect(() => {
+    if (selectedTema) {
+      loadPreguntas();
+    }
+  }, [loadPreguntas, selectedTema]);
 
   const handleSelectTema = (tema) => {
     setSelectedTema(tema);

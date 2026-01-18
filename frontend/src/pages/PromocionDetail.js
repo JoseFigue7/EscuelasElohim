@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { temaService, materialService } from '../services/api';
 import './PromocionDetail.css';
@@ -10,11 +10,7 @@ const PromocionDetail = () => {
   const [error, setError] = useState('');
   const [selectedTema, setSelectedTema] = useState(null);
 
-  useEffect(() => {
-    loadTemas();
-  }, [id]);
-
-  const loadTemas = async () => {
+  const loadTemas = useCallback(async () => {
     try {
       setLoading(true);
       const response = await temaService.getAll(id);
@@ -26,7 +22,11 @@ const PromocionDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadTemas();
+  }, [loadTemas]);
 
   const handleTemaClick = async (temaId) => {
     if (selectedTema?.id === temaId) {

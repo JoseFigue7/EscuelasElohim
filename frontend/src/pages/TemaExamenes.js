@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { examenService } from '../services/api';
 import './TemaExamenes.css';
@@ -12,11 +12,7 @@ const TemaExamenes = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadExamenes();
-  }, [id]);
-
-  const loadExamenes = async () => {
+  const loadExamenes = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -33,7 +29,11 @@ const TemaExamenes = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadExamenes();
+  }, [loadExamenes]);
 
   const isExamenDisponible = (examen) => {
     if (!examen || typeof examen !== 'object') return false;

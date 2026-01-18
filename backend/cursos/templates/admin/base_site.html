@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/custom_admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+  <div id="branding">
+    <h1 id="site-name">
+      <span class="brand-mark">E</span>
+      Elohim Cobán
+      <span class="brand-subtitle">Administración</span>
+    </h1>
+  </div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+

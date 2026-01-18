@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { examenService } from '../services/api';
 import './TomarExamen.css';
@@ -13,11 +13,7 @@ const TomarExamen = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadExamen();
-  }, [id]);
-
-  const loadExamen = async () => {
+  const loadExamen = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -71,7 +67,11 @@ const TomarExamen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadExamen();
+  }, [loadExamen]);
 
   const handleRespuestaChange = (preguntaId, respuesta) => {
     setRespuestas((prev) => ({

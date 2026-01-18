@@ -233,6 +233,13 @@ export const diplomaService = {
   getById: (id) => api.get(`/diplomas/${id}/`),
   generarDiplomas: (promocionId) => 
     api.post('/diplomas/generar_diplomas/', { promocion_id: promocionId }),
+  descargarPdf: (id) =>
+    api.get(`/diplomas/${id}/`, { params: { download: 'true' }, responseType: 'blob' }),
+  descargarZip: (promocionId) =>
+    api.get('/diplomas/descargar_zip/', {
+      params: { promocion_id: promocionId },
+      responseType: 'blob',
+    }),
 };
 
 // Servicio de Usuarios (Admin)

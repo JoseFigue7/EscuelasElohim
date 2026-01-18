@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { temaService, materialService, examenService, calificacionService, inscripcionService, promocionService, recuperacionService } from '../services/api';
 import './TemaDetail.css';
 
 const TemaDetail = () => {
   const { promocionId, temaId } = useParams();
-  const navigate = useNavigate();
   const [tema, setTema] = useState(null);
   const [promocion, setPromocion] = useState(null);
   const [materiales, setMateriales] = useState([]);
@@ -29,11 +28,7 @@ const TemaDetail = () => {
     fecha_fin: '',
   });
 
-  useEffect(() => {
-    loadData();
-  }, [promocionId, temaId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -89,7 +84,11 @@ const TemaDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [promocionId, temaId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleMaterialSubmit = async (e) => {
     e.preventDefault();

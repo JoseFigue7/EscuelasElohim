@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { temaService, inscripcionService, asistenciaService, usuarioService, preguntaService, examenService, promedioService, diplomaService, promocionService } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { temaService, inscripcionService, usuarioService, promedioService, diplomaService, promocionService } from '../services/api';
 import PreguntasSection from '../components/PreguntasSection';
 import ExamenesSection from '../components/ExamenesSection';
 import './GestionarPromocion.css';
 
 const GestionarPromocion = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [temas, setTemas] = useState([]);
   const [inscripciones, setInscripciones] = useState([]);
   const [alumnos, setAlumnos] = useState([]);
@@ -18,7 +17,6 @@ const GestionarPromocion = () => {
   const [showNewInscripcion, setShowNewInscripcion] = useState(false);
   const [showEditPromocion, setShowEditPromocion] = useState(false);
   const [diplomas, setDiplomas] = useState([]);
-  const [diplomasLoading, setDiplomasLoading] = useState(false);
   const [diplomaWarnings, setDiplomaWarnings] = useState([]);
   const [diplomaInfo, setDiplomaInfo] = useState('');
   const [promedios, setPromedios] = useState([]);
@@ -39,17 +37,6 @@ const GestionarPromocion = () => {
   const [alumnoSearch, setAlumnoSearch] = useState('');
   const [temaSearch, setTemaSearch] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [id]);
-
-  useEffect(() => {
-    if (activeTab === 'promedios') {
-      loadPromedios({ calcular: true, silent: true });
-      loadDiplomas();
-    }
-  }, [activeTab, id]);
-
   const resolveDiplomaUrl = (archivo) => {
     if (!archivo) return null;
     if (archivo.startsWith('http://') || archivo.startsWith('https://')) {
@@ -66,7 +53,7 @@ const GestionarPromocion = () => {
   };
 
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [promocionResponse, temasResponse, inscripcionesResponse, alumnosResponse] = await Promise.all([
@@ -84,7 +71,7 @@ const GestionarPromocion = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   const handleCreateTema = async (e) => {
     e.preventDefault();
@@ -181,7 +168,6 @@ const GestionarPromocion = () => {
         setDiplomaInfo('');
       }
       if (Array.isArray(response.data.diplomas)) {
-        setDiplomas(response.data.diplomas);
         return response.data.diplomas;
       }
       return null;
@@ -198,8 +184,7 @@ const GestionarPromocion = () => {
     }
   };
 
-  const loadDiplomas = async () => {
-    setDiplomasLoading(true);
+  const loadDiplomas = useCallback(async () => {
     try {
       const response = await diplomaService.getAll(id);
       const data = response.data.results || response.data;
@@ -210,9 +195,8 @@ const GestionarPromocion = () => {
       setDiplomas([]);
       return [];
     } finally {
-      setDiplomasLoading(false);
     }
-  };
+  }, [id]);
 
   const handleDescargarDiploma = async ({ inscripcionId, alumnoNombre, cursoNombre }) => {
     let diploma = diplomasByInscripcion.get(String(inscripcionId));
@@ -221,7 +205,13 @@ const GestionarPromocion = () => {
     if (!archivoUrl) {
       try {
         const diplomasGenerados = await generarDiplomasPromocion({ showAlert: false });
-        const updatedDiplomas = diplomasGenerados || (await loadDiplomas());
+        let updatedDiplomas = Array.isArray(diplomasGenerados) ? diplomasGenerados : null;
+        const hasInscripcionData = Array.isArray(updatedDiplomas)
+          ? updatedDiplomas.some((item) => item?.inscripcion || item?.inscripcion?.id)
+          : false;
+        if (!hasInscripcionData) {
+          updatedDiplomas = await loadDiplomas();
+        }
         const updatedDiploma = updatedDiplomas.find(
           (item) => String(item?.inscripcion?.id ?? item?.inscripcion) === String(inscripcionId)
         );
@@ -314,7 +304,7 @@ const GestionarPromocion = () => {
     }
   };
 
-  const loadPromedios = async ({ calcular = false, silent = false } = {}) => {
+  const loadPromedios = useCallback(async ({ calcular = false, silent = false } = {}) => {
     setPromediosLoading(true);
     let calcularError = null;
     if (calcular) {
@@ -341,7 +331,18 @@ const GestionarPromocion = () => {
         alert('Promedios calculados correctamente');
       }
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (activeTab === 'promedios') {
+      loadPromedios({ calcular: true, silent: true });
+      loadDiplomas();
+    }
+  }, [activeTab, loadDiplomas, loadPromedios]);
 
   const handleEditPromocion = () => {
     if (promocion) {
@@ -394,22 +395,6 @@ const GestionarPromocion = () => {
     }
   };
 
-  const handleEliminarPromocion = async () => {
-    if (!promocion) return;
-    const confirmText = `¿Eliminar la promoción "${promocion.nombre}"? Esta acción no se puede deshacer.`;
-    if (!window.confirm(confirmText)) {
-      return;
-    }
-    try {
-      await promocionService.delete(id);
-      alert('Promoción eliminada correctamente');
-      navigate('/promociones-gestion');
-    } catch (err) {
-      console.error('Error al eliminar promoción:', err);
-      alert('Error al eliminar promoción: ' + (err.response?.data?.detail || err.message));
-    }
-  };
-
   if (loading) {
     return <div className="loading">Cargando...</div>;
   }
@@ -430,11 +415,6 @@ const GestionarPromocion = () => {
     inscripcion,
     promedio: promediosByInscripcion.get(String(inscripcion.id)),
   }));
-  const formatPromedio = (value) => {
-    const numeric = Number.parseFloat(value);
-    if (!Number.isFinite(numeric)) return null;
-    return numeric.toFixed(2);
-  };
   const formatFecha = (value) => {
     if (!value) return null;
     return new Date(value).toLocaleString('es-ES');
@@ -893,7 +873,6 @@ const GestionarPromocion = () => {
                         promocion?.curso?.nombre ||
                         '';
                       const diploma = diplomasByInscripcion.get(String(inscripcion.id));
-                      const archivoUrl = resolveDiplomaUrl(diploma?.archivo);
                       const aprobado = Number.isFinite(promedioFinalValue)
                         ? (typeof promedio?.aprobado === 'boolean'
                             ? promedio.aprobado

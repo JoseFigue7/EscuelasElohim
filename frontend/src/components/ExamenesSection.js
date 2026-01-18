@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { examenService } from '../services/api';
 
 const ExamenesSection = ({ temas, onRefresh }) => {
@@ -16,11 +16,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
     activo: true,
   });
 
-  useEffect(() => {
-    loadExamenes();
-  }, [temas]);
-
-  const loadExamenes = async () => {
+  const loadExamenes = useCallback(async () => {
     const nuevosExamenes = {};
     const nuevosLoading = {};
 
@@ -40,7 +36,11 @@ const ExamenesSection = ({ temas, onRefresh }) => {
 
     setExamenes(nuevosExamenes);
     setLoading(nuevosLoading);
-  };
+  }, [temas]);
+
+  useEffect(() => {
+    loadExamenes();
+  }, [loadExamenes]);
 
   const handleEdit = (tema, examen) => {
     setEditingExamen({ tema, examen });

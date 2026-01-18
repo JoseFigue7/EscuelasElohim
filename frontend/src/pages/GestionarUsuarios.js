@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usuarioService } from '../services/api';
 import './GestionarUsuarios.css';
 
@@ -22,11 +22,7 @@ const GestionarUsuarios = () => {
   const [tipoFiltro, setTipoFiltro] = useState('');
   const [nombreFiltro, setNombreFiltro] = useState('');
 
-  useEffect(() => {
-    loadUsuarios();
-  }, [tipoFiltro]);
-
-  const loadUsuarios = async () => {
+  const loadUsuarios = useCallback(async () => {
     try {
       setLoading(true);
       const response = await usuarioService.getAll(tipoFiltro || null);
@@ -37,7 +33,11 @@ const GestionarUsuarios = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tipoFiltro]);
+
+  useEffect(() => {
+    loadUsuarios();
+  }, [loadUsuarios]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

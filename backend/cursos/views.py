@@ -769,6 +769,78 @@ class DiplomaViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(inscripcion__promocion_id=promocion_id)
         
         return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        """Sobrescribir retrieve para servir el archivo del diploma"""
+        instance = self.get_object()
+
+        if request.query_params.get('download') == 'true' and instance.archivo:
+            from django.http import FileResponse
+            from mimetypes import guess_type
+            from urllib.parse import quote
+
+            file_path = instance.archivo.path
+            if os.path.exists(file_path):
+                content_type, _ = guess_type(file_path)
+                if not content_type:
+                    content_type = 'application/octet-stream'
+
+                filename = os.path.basename(instance.archivo.name)
+                filename_encoded = quote(filename, safe='')
+
+                response = FileResponse(open(file_path, 'rb'), content_type=content_type)
+                response['Content-Disposition'] = (
+                    f'attachment; filename="{filename}"; filename*=UTF-8\'\'{filename_encoded}'
+                )
+                return response
+
+        return super().retrieve(request, *args, **kwargs)
+
+    @action(detail=False, methods=['get'])
+    def descargar_zip(self, request):
+        """Descargar diplomas de una promoción en un ZIP"""
+        promocion_id = request.query_params.get('promocion_id') or request.query_params.get('promocion')
+        if not promocion_id:
+            return Response({'error': 'promocion_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        promocion = get_object_or_404(Promocion, id=promocion_id)
+        diplomas = (
+            self.get_queryset()
+            .filter(inscripcion__promocion_id=promocion_id)
+            .select_related('inscripcion__alumno', 'inscripcion__promocion__curso')
+        )
+
+        zip_buffer = io.BytesIO()
+        added = 0
+        import zipfile
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for diploma in diplomas:
+                if diploma.archivo and os.path.exists(diploma.archivo.path):
+                    filename = os.path.basename(diploma.archivo.name)
+                    zip_file.write(diploma.archivo.path, arcname=filename)
+                    added += 1
+
+        if added == 0:
+            return Response(
+                {'error': 'No hay diplomas disponibles para descargar'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        zip_buffer.seek(0)
+        from django.http import HttpResponse
+        from urllib.parse import quote
+
+        base_name = promocion.nombre or f'promocion_{promocion_id}'
+        safe_name = ''.join(ch if ch.isalnum() or ch in ('-', '_') else '_' for ch in base_name)
+        safe_name = safe_name.strip('_') or f'promocion_{promocion_id}'
+        zip_filename = f'Diplomas_{safe_name}.zip'
+        zip_filename_encoded = quote(zip_filename, safe='')
+
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = (
+            f'attachment; filename="{zip_filename}"; filename*=UTF-8\'\'{zip_filename_encoded}'
+        )
+        return response
     
     @action(detail=False, methods=['post'])
     def generar_diplomas(self, request):

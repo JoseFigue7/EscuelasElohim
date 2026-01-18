@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { promocionService, cursoService } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import './Dashboard.css';
 
 const DocenteDashboard = () => {
@@ -20,11 +19,7 @@ const DocenteDashboard = () => {
     fecha_fin: '',
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [promResponse, cursosResponse] = await Promise.all([
@@ -46,7 +41,11 @@ const DocenteDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleCreatePromocion = async (e) => {
     e.preventDefault();
