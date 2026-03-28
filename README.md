@@ -233,8 +233,20 @@ Si el usuario o la base ya existen, verás error de “already exists”: entonc
 3. **Backend**: paquetes del sistema (arriba), crear venv, `pip install -r requirements.txt`, aplicar migraciones, `collectstatic`, `createsuperuser` si aplica.
 4. **Variables**: `sudo cp .env.production.example /etc/elohimcoban.env`, editar (SECRET_KEY, ALLOWED_HOSTS, DB_*, CORS/CSRF con la URL real del sitio). `sudo chmod 600 /etc/elohimcoban.env`.
 5. **Gunicorn**: el servicio puede usar `DJANGO_ENV_FILE=/etc/elohimcoban.env` (lo soporta `settings.py`). Ver `deploy/gunicorn.service.example` y ajustar rutas de `User`, `WorkingDirectory` y `ExecStart`.
-6. **Frontend**: `cp .env.production.example .env.production`, definir `REACT_APP_API_URL` (mismo host que Nginx, ruta `/api`), luego `npm ci && npm run build`.
+6. **Frontend**: `cp .env.production.example .env.production`, definir `REACT_APP_API_URL` (mismo host que Nginx, ruta `/api`), luego `npm ci` y `npm run build` (ver abajo si falla por memoria).
 7. **Nginx**: sirve el build estático y hace proxy de `/api/` y `/admin/` a Gunicorn. Ver `deploy/nginx.conf.example` (ajusta `server_name` cuando tengas dominio y SSL).
+
+#### Si `npm run build` falla con *JavaScript heap out of memory*
+
+En droplets con poca RAM, sube el límite de heap de Node (el número es MB; no debe superar la RAM+swap disponible):
+
+```bash
+cd frontend
+export NODE_OPTIONS="--max-old-space-size=3072"
+npm run build
+```
+
+Si sigue fallando: añade **swap** de 2 GB en el servidor (`fallocate`/`mkswap`/`swapon`) o compila en tu PC y sube la carpeta `frontend/build/` con `rsync`/`scp`.
 
 Mientras no uses HTTPS, las URLs en plantillas usan `http://162.243.93.136`. Al añadir dominio y certificado, cambia a `https://tu-dominio` en esas mismas variables y vuelve a construir el frontend.
 
