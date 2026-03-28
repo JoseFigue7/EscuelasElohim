@@ -232,9 +232,22 @@ Si el usuario o la base ya existen, verás error de “already exists”: entonc
 2. **PostgreSQL**: instalar y arrancar el servicio; crear base y usuario alineados con `/etc/elohimcoban.env` (comandos arriba).
 3. **Backend**: paquetes del sistema (arriba), crear venv, `pip install -r requirements.txt`, aplicar migraciones, `collectstatic`, `createsuperuser` si aplica.
 4. **Variables**: `sudo cp .env.production.example /etc/elohimcoban.env`, editar (SECRET_KEY, ALLOWED_HOSTS, DB_*, CORS/CSRF con la URL real del sitio). `sudo chmod 600 /etc/elohimcoban.env`.
-5. **Gunicorn**: el servicio puede usar `DJANGO_ENV_FILE=/etc/elohimcoban.env` (lo soporta `settings.py`). Ver `deploy/gunicorn.service.example` y ajustar rutas de `User`, `WorkingDirectory` y `ExecStart`.
+5. **Gunicorn**: generar la unidad systemd desde el ejemplo (sustituye `REPO` por la ruta del clon, p. ej. `/var/www/elohim/EscuelasElohim`):
+
+```bash
+REPO=/var/www/elohim/EscuelasElohim
+sudo sed "s|__REPO__|${REPO}|g" "$REPO/deploy/gunicorn.service.example" | sudo tee /etc/systemd/system/elohimcoban.service >/dev/null
+sudo chgrp www-data /etc/elohimcoban.env && sudo chmod 640 /etc/elohimcoban.env
+sudo chown -R www-data:www-data "$REPO/backend/media" "$REPO/backend/staticfiles"
+sudo systemctl daemon-reload
+sudo systemctl enable --now elohimcoban
+sudo systemctl status elohimcoban
+```
+
+Si el servicio falla, revisa permisos: `www-data` debe leer el código y el `venv` bajo `REPO` (`chmod -R o+rX` o `chown -R www-data` según tu política).
+
 6. **Frontend**: `cp .env.production.example .env.production`, definir `REACT_APP_API_URL` (mismo host que Nginx, ruta `/api`), luego `npm ci` y `npm run build` (ver abajo si falla por memoria).
-7. **Nginx**: sirve el build estático y hace proxy de `/api/` y `/admin/` a Gunicorn. Ver `deploy/nginx.conf.example` (ajusta `server_name` cuando tengas dominio y SSL).
+7. **Nginx**: mismo `REPO`, luego `nginx -t` y recargar. Ejemplo con `sed` en la cabecera de `deploy/nginx.conf.example`.
 
 #### Si `npm run build` falla con *JavaScript heap out of memory*
 

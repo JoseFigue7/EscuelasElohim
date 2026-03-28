@@ -1,9 +1,7 @@
-# Fragmento de ejemplo para Nginx en el droplet.
-# Copiar o incluir desde sites-available (ajusta server_name y rutas).
-#
-# Supuesto: build de React en /var/www/elohimcoban/frontend/build
-#           proyecto clonado en /var/www/elohimcoban
-#           staticfiles tras: python manage.py collectstatic
+# Sustituir __REPO__ por la ruta del clon, p. ej.:
+#   sed "s|__REPO__|/var/www/elohim/EscuelasElohim|g" deploy/nginx.conf.example | sudo tee /etc/nginx/sites-available/elohimcoban
+#   sudo ln -sf /etc/nginx/sites-available/elohimcoban /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
 
 upstream elohimcoban_app {
     server unix:/run/gunicorn/elohimcoban.sock fail_timeout=0;
@@ -11,17 +9,16 @@ upstream elohimcoban_app {
 
 server {
     listen 80;
-    # Cuando tengas dominio y SSL, añade listen 443 ssl y certificados.
     server_name _;
 
     client_max_body_size 25M;
 
     location /static/ {
-        alias /var/www/elohimcoban/backend/staticfiles/;
+        alias __REPO__/backend/staticfiles/;
     }
 
     location /media/ {
-        alias /var/www/elohimcoban/backend/media/;
+        alias __REPO__/backend/media/;
     }
 
     location /api/ {
@@ -41,7 +38,7 @@ server {
     }
 
     location / {
-        root /var/www/elohimcoban/frontend/build;
+        root __REPO__/frontend/build;
         try_files $uri $uri/ /index.html;
     }
 }
