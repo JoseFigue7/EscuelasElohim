@@ -184,6 +184,8 @@ python manage.py migrate
 
 ## Producción (droplet: Nginx + Gunicorn)
 
+**Servidor de referencia:** IP pública del droplet `162.243.93.136` (las plantillas `.env.production.example` ya la usan hasta que haya dominio).
+
 Las variables de **producción** están documentadas aparte de las de desarrollo para no mezclar secretos ni `DEBUG=True` en el servidor.
 
 | Archivo | Uso |
@@ -202,7 +204,7 @@ Las variables de **producción** están documentadas aparte de las de desarrollo
 6. **Frontend**: `cp .env.production.example .env.production`, definir `REACT_APP_API_URL` (mismo host que Nginx, ruta `/api`), luego `npm ci && npm run build`.
 7. **Nginx**: sirve el build estático y hace proxy de `/api/` y `/admin/` a Gunicorn. Ver `deploy/nginx.conf.example` (ajusta `server_name` cuando tengas dominio y SSL).
 
-Con el dominio aún sin definir puedes usar la **IP pública** del droplet en `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` y en `REACT_APP_API_URL` (con `http://` solo mientras no uses HTTPS).
+Mientras no uses HTTPS, las URLs en plantillas usan `http://162.243.93.136`. Al añadir dominio y certificado, cambia a `https://tu-dominio` en esas mismas variables y vuelve a construir el frontend.
 
 ## Licencia
 
