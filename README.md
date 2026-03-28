@@ -244,15 +244,18 @@ sudo systemctl enable --now elohimcoban
 sudo systemctl status elohimcoban
 ```
 
-Si el servicio falla, revisa permisos: `www-data` debe leer el código y el `venv` bajo `REPO` (`chmod -R o+rX` o `chown -R www-data` según tu política).
+Si el servicio falla, revisa permisos: `www-data` debe leer el código y el `venv` bajo `REPO` (`chmod -R o+rX`REPO=/var/www/elohim/EscuelasElohim
+sudo sed "s|__REPO__|${REPO}|g" "$REPO/deploy/gunicorn.service.example" | sudo tee /etc/systemd/system/elohimcoban.service >/dev/null o `chown -R www-data` según tu política).
 
 6. **Frontend**: `cp .env.production.example .env.production`, definir `REACT_APP_API_URL` (mismo host que Nginx, ruta `/api`), luego `npm ci` y `npm run build` (ver abajo si falla por memoria).
-7. **Nginx**: mismo `REPO`, luego `nginx -t` y recargar. Ejemplo con `sed` en la cabecera de `deploy/nginx.conf.example`.
+7. **Nginx**: mismo `REPO`, luego `nginx -t` y recargar. Ejemplo con `sed` en la cabecera de `deploy/ngiost que Nginx, ruta `/api`), luego `npm ci` y `npm run build` (ver abajo si falla por memoria).
+7. **Nginx**: mismo `REPO`, luego `nginx -t` y recargar. Ejemplo con `sed` en la cabecera de `deploy/nginx.conf.example`. Si el React sale “sin diseño”, suele ser porque `/static/` apuntaba solo a Django: el ejemplo actual separa `/static/admin/` y `/static/rest_framework/` (collectstatic) del resto de `/static/` (`frontend/build/static/` de CRA).
 
 #### Si `npm run build` falla con *JavaScript heap out of memory*
 
 En droplets con poca RAM, sube el límite de heap de Node (el número es MB; no debe superar la RAM+swap disponible):
-
+ost que Nginx, ruta `/api`), luego `npm ci` y `npm run build` (ver abajo si falla por memoria).
+7. **Nginx**: mismo `REPO`, luego `nginx -t` y recargar. Ejemplo con `sed` en la cabecera de `deploy/ngi
 ```bash
 cd frontend
 export NODE_OPTIONS="--max-old-space-size=3072"
