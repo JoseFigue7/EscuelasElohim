@@ -1,0 +1,47 @@
+# Fragmento de ejemplo para Nginx en el droplet.
+# Copiar o incluir desde sites-available (ajusta server_name y rutas).
+#
+# Supuesto: build de React en /var/www/elohimcoban/frontend/build
+#           proyecto clonado en /var/www/elohimcoban
+#           staticfiles tras: python manage.py collectstatic
+
+upstream elohimcoban_app {
+    server unix:/run/gunicorn/elohimcoban.sock fail_timeout=0;
+}
+
+server {
+    listen 80;
+    # Cuando tengas dominio y SSL, añade listen 443 ssl y certificados.
+    server_name _;
+
+    client_max_body_size 25M;
+
+    location /static/ {
+        alias /var/www/elohimcoban/backend/staticfiles/;
+    }
+
+    location /media/ {
+        alias /var/www/elohimcoban/backend/media/;
+    }
+
+    location /api/ {
+        proxy_pass http://elohimcoban_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /admin/ {
+        proxy_pass http://elohimcoban_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        root /var/www/elohimcoban/frontend/build;
+        try_files $uri $uri/ /index.html;
+    }
+}

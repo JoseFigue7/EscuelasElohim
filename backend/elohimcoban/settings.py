@@ -3,11 +3,28 @@ Django settings for elohimcoban project.
 """
 
 from pathlib import Path
-from decouple import config
 import os
+
+from decouple import Config, RepositoryEnv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Production: set DJANGO_ENV_FILE=/ruta/a/.env (p. ej. /etc/elohimcoban.env) en systemd.
+# Desarrollo: usa backend/.env (copia desde .env.example en la raíz del repo).
+_env_candidates = []
+_explicit = os.environ.get('DJANGO_ENV_FILE')
+if _explicit:
+    _env_candidates.append(Path(_explicit).expanduser())
+_env_candidates.append(BASE_DIR / '.env')
+
+config = None
+for _p in _env_candidates:
+    if _p.is_file():
+        config = Config(RepositoryEnv(str(_p)))
+        break
+if config is None:
+    from decouple import config as config
 
 
 # Quick-start development settings - unsuitable for production
@@ -166,6 +183,11 @@ CSRF_TRUSTED_ORIGINS = config(
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_EXPOSE_HEADERS = ['Content-Disposition', 'Content-Type']
+
+# Detrás de Nginx con HTTPS (activar cuando el dominio y SSL estén listos)
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
 
 # JWT Settings
 from datetime import timedelta

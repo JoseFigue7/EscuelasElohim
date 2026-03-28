@@ -1,0 +1,35 @@
+# Ejemplo de unidad systemd para Gunicorn en el droplet.
+# Ajusta rutas de usuario, venv y repo antes de instalar:
+#   sudo cp deploy/gunicorn.service.example /etc/systemd/system/elohimcoban.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now elohimcoban
+#
+# El archivo de variables de producción debe existir y no subirse a git:
+#   /etc/elohimcoban.env  (basado en .env.production.example de la raíz del repo)
+
+[Unit]
+Description=Elohim Coban Gunicorn
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+RuntimeDirectory=gunicorn
+RuntimeDirectoryMode=0755
+WorkingDirectory=/var/www/elohimcoban/backend
+Environment=DJANGO_ENV_FILE=/etc/elohimcoban.env
+EnvironmentFile=/etc/elohimcoban.env
+ExecStart=/var/www/elohimcoban/backend/venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:/run/gunicorn/elohimcoban.sock \
+    --umask 007 \
+    elohimcoban.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

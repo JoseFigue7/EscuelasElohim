@@ -46,6 +46,8 @@ venv.bak/
 # Environment variables
 .env
 .env.local
+.env.production
+backend/.env
 
 # OS
 .DS_Store

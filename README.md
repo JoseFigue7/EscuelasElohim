@@ -17,10 +17,13 @@ elohimcoban/
 │   ├── cursos/       # App de gestión de cursos
 │   ├── usuarios/     # App de usuarios
 │   └── manage.py
+├── deploy/            # Ejemplos Nginx + systemd (producción)
 ├── frontend/         # Aplicación React
 │   ├── public/
 │   └── src/
 ├── docker-compose.yml
+├── .env.example              # Plantilla desarrollo → backend/.env
+├── .env.production.example   # Plantilla servidor (no commitear .env real)
 └── README.md
 ```
 
@@ -63,9 +66,9 @@ pip install -r requirements.txt
 python -m pip install Pillow
 python -m pip install reportlab PyPDF2
 
-# Copiar archivo de entorno
+# Copiar archivo de entorno (plantilla de desarrollo en la raíz del repo)
 cp ../.env.example .env
-# Editar .env con tus configuraciones
+# Editar backend/.env con tus valores (no subir .env a git)
 
 # Crear migraciones
 python manage.py makemigrations
@@ -179,16 +182,27 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-## Producción
+## Producción (droplet: Nginx + Gunicorn)
 
-Para desplegar en producción:
+Las variables de **producción** están documentadas aparte de las de desarrollo para no mezclar secretos ni `DEBUG=True` en el servidor.
 
-1. Configurar variables de entorno en producción
-2. Establecer `DEBUG=False` en settings.py
-3. Configurar `ALLOWED_HOSTS` apropiadamente
-4. Usar un servidor WSGI como Gunicorn
-5. Configurar un servidor web como Nginx
-6. Configurar PostgreSQL en producción
+| Archivo | Uso |
+|--------|-----|
+| `.env.example` | Plantilla solo para desarrollo → copiar a `backend/.env` |
+| `.env.production.example` | Plantilla para el servidor → copiar a p. ej. `/etc/elohimcoban.env` (no commitear el archivo real) |
+| `frontend/.env.production.example` | Antes de `npm run build`, copiar a `frontend/.env.production` con la URL pública de la API |
+
+### Resumen de despliegue
+
+1. **Clonar** el repo en el droplet (p. ej. `/var/www/elohimcoban`).
+2. **PostgreSQL**: crear base y usuario; valores en `/etc/elohimcoban.env` según `.env.production.example`.
+3. **Backend**: crear venv, `pip install -r requirements.txt`, aplicar migraciones, `collectstatic`, `createsuperuser` si aplica.
+4. **Variables**: `sudo cp .env.production.example /etc/elohimcoban.env`, editar (SECRET_KEY, ALLOWED_HOSTS, DB_*, CORS/CSRF con la URL real del sitio). `sudo chmod 600 /etc/elohimcoban.env`.
+5. **Gunicorn**: el servicio puede usar `DJANGO_ENV_FILE=/etc/elohimcoban.env` (lo soporta `settings.py`). Ver `deploy/gunicorn.service.example` y ajustar rutas de `User`, `WorkingDirectory` y `ExecStart`.
+6. **Frontend**: `cp .env.production.example .env.production`, definir `REACT_APP_API_URL` (mismo host que Nginx, ruta `/api`), luego `npm ci && npm run build`.
+7. **Nginx**: sirve el build estático y hace proxy de `/api/` y `/admin/` a Gunicorn. Ver `deploy/nginx.conf.example` (ajusta `server_name` cuando tengas dominio y SSL).
+
+Con el dominio aún sin definir puedes usar la **IP pública** del droplet en `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` y en `REACT_APP_API_URL` (con `http://` solo mientras no uses HTTPS).
 
 ## Licencia
 
