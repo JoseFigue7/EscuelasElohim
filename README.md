@@ -205,10 +205,31 @@ sudo apt install -y python3-venv python3-pip build-essential libpq-dev
 
 Si el mensaje pide una versión concreta (p. ej. `python3.12-venv`), instálala: `sudo apt install -y python3.12-venv`. Borra el venv a medias y créalo de nuevo: `rm -rf backend/venv` y vuelve a `python3 -m venv venv`. Usa `python3 manage.py ...` o, con el venv activado, `python manage.py ...`.
 
+### PostgreSQL en Ubuntu (error: Connection refused en puerto 5432)
+
+Significa que el servicio no está instalado, no está arrancado o no escucha en `localhost`. Instalación típica en el mismo droplet:
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl enable --now postgresql
+sudo ss -lntp | grep 5432   # debe mostrar postgres escuchando
+```
+
+Crea usuario y base **con los mismos** `DB_NAME`, `DB_USER` y `DB_PASSWORD` que en `/etc/elohimcoban.env` (sustituye la contraseña):
+
+```bash
+sudo -u postgres psql -c "CREATE USER elohimcoban WITH PASSWORD 'LA_MISMA_QUE_EN_ENV';"
+sudo -u postgres psql -c "CREATE DATABASE elohimcoban_db OWNER elohimcoban;"
+sudo -u postgres psql -d elohimcoban_db -c "GRANT ALL ON SCHEMA public TO elohimcoban;"
+```
+
+Si el usuario o la base ya existen, verás error de “already exists”: entonces solo comprueba que la contraseña en `.env` coincida (`ALTER USER elohimcoban WITH PASSWORD '...';` si hace falta). Después, de nuevo en `backend` con venv activo: `export DJANGO_ENV_FILE=/etc/elohimcoban.env` y `python manage.py migrate`.
+
 ### Resumen de despliegue
 
 1. **Clonar** el repo en el droplet (p. ej. `/var/www/elohimcoban`).
-2. **PostgreSQL**: crear base y usuario; valores en `/etc/elohimcoban.env` según `.env.production.example`.
+2. **PostgreSQL**: instalar y arrancar el servicio; crear base y usuario alineados con `/etc/elohimcoban.env` (comandos arriba).
 3. **Backend**: paquetes del sistema (arriba), crear venv, `pip install -r requirements.txt`, aplicar migraciones, `collectstatic`, `createsuperuser` si aplica.
 4. **Variables**: `sudo cp .env.production.example /etc/elohimcoban.env`, editar (SECRET_KEY, ALLOWED_HOSTS, DB_*, CORS/CSRF con la URL real del sitio). `sudo chmod 600 /etc/elohimcoban.env`.
 5. **Gunicorn**: el servicio puede usar `DJANGO_ENV_FILE=/etc/elohimcoban.env` (lo soporta `settings.py`). Ver `deploy/gunicorn.service.example` y ajustar rutas de `User`, `WorkingDirectory` y `ExecStart`.
