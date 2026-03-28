@@ -194,11 +194,22 @@ Las variables de **producción** están documentadas aparte de las de desarrollo
 | `.env.production.example` | Plantilla para el servidor → copiar a p. ej. `/etc/elohimcoban.env` (no commitear el archivo real) |
 | `frontend/.env.production.example` | Antes de `npm run build`, copiar a `frontend/.env.production` con la URL pública de la API |
 
+### Ubuntu/Debian en el servidor (antes del venv)
+
+Si `python3 -m venv venv` falla con *ensurepip is not available*, instala el paquete `venv` de tu versión de Python y herramientas para compilar dependencias (p. ej. `psycopg2`):
+
+```bash
+sudo apt update
+sudo apt install -y python3-venv python3-pip build-essential libpq-dev
+```
+
+Si el mensaje pide una versión concreta (p. ej. `python3.12-venv`), instálala: `sudo apt install -y python3.12-venv`. Borra el venv a medias y créalo de nuevo: `rm -rf backend/venv` y vuelve a `python3 -m venv venv`. Usa `python3 manage.py ...` o, con el venv activado, `python manage.py ...`.
+
 ### Resumen de despliegue
 
 1. **Clonar** el repo en el droplet (p. ej. `/var/www/elohimcoban`).
 2. **PostgreSQL**: crear base y usuario; valores en `/etc/elohimcoban.env` según `.env.production.example`.
-3. **Backend**: crear venv, `pip install -r requirements.txt`, aplicar migraciones, `collectstatic`, `createsuperuser` si aplica.
+3. **Backend**: paquetes del sistema (arriba), crear venv, `pip install -r requirements.txt`, aplicar migraciones, `collectstatic`, `createsuperuser` si aplica.
 4. **Variables**: `sudo cp .env.production.example /etc/elohimcoban.env`, editar (SECRET_KEY, ALLOWED_HOSTS, DB_*, CORS/CSRF con la URL real del sitio). `sudo chmod 600 /etc/elohimcoban.env`.
 5. **Gunicorn**: el servicio puede usar `DJANGO_ENV_FILE=/etc/elohimcoban.env` (lo soporta `settings.py`). Ver `deploy/gunicorn.service.example` y ajustar rutas de `User`, `WorkingDirectory` y `ExecStart`.
 6. **Frontend**: `cp .env.production.example .env.production`, definir `REACT_APP_API_URL` (mismo host que Nginx, ruta `/api`), luego `npm ci && npm run build`.
