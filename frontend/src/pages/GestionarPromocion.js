@@ -872,7 +872,6 @@ const GestionarPromocion = () => {
                         promocion?.curso_nombre ||
                         promocion?.curso?.nombre ||
                         '';
-                      const diploma = diplomasByInscripcion.get(String(inscripcion.id));
                       const aprobado = Number.isFinite(promedioFinalValue)
                         ? (typeof promedio?.aprobado === 'boolean'
                             ? promedio.aprobado
