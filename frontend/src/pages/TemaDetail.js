@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { temaService, materialService, examenService, calificacionService, inscripcionService, promocionService, recuperacionService } from '../services/api';
 import './TemaDetail.css';
 
 const TemaDetail = () => {
   const { promocionId, temaId } = useParams();
+  const navigate = useNavigate();
   const [tema, setTema] = useState(null);
   const [promocion, setPromocion] = useState(null);
   const [materiales, setMateriales] = useState([]);
@@ -17,6 +18,13 @@ const TemaDetail = () => {
   const [error, setError] = useState('');
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [showRecuperacionForm, setShowRecuperacionForm] = useState(false);
+  const [showTemaMenu, setShowTemaMenu] = useState(false);
+  const [showEditTemaForm, setShowEditTemaForm] = useState(false);
+  const [editTemaForm, setEditTemaForm] = useState({
+    titulo: '',
+    descripcion: '',
+    fecha_clase: '',
+  });
   const [materialForm, setMaterialForm] = useState({
     titulo: '',
     descripcion: '',
@@ -44,6 +52,11 @@ const TemaDetail = () => {
       const inscripcionesData = inscripcionesResponse.data.results || inscripcionesResponse.data;
       
       setTema(temaResponse.data);
+      setEditTemaForm({
+        titulo: temaResponse.data.titulo || '',
+        descripcion: temaResponse.data.descripcion || '',
+        fecha_clase: temaResponse.data.fecha_clase || '',
+      });
       setPromocion(promocionResponse);
       setMateriales(materialesResponse.data.results || materialesResponse.data);
       setInscripciones(inscripcionesData);
@@ -127,6 +140,45 @@ const TemaDetail = () => {
       loadData();
     } catch (err) {
       alert('Error al eliminar material');
+    }
+  };
+
+  const handleUpdateTema = async (e) => {
+    e.preventDefault();
+    try {
+      await temaService.update(temaId, {
+        ...tema,
+        titulo: editTemaForm.titulo,
+        descripcion: editTemaForm.descripcion || null,
+        fecha_clase: editTemaForm.fecha_clase || null,
+      });
+      setShowEditTemaForm(false);
+      setShowTemaMenu(false);
+      await loadData();
+      alert('Tema actualizado correctamente');
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message;
+      alert('Error al actualizar tema: ' + detail);
+    }
+  };
+
+  const handleDeleteTema = async () => {
+    const confirmacion = window.confirm(
+      `¿Estás seguro de eliminar el tema "${tema?.titulo}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmacion) {
+      return;
+    }
+    try {
+      await temaService.delete(temaId);
+      alert('Tema eliminado correctamente');
+      navigate(`/promociones/${promocionId}/gestion`);
+    } catch (err) {
+      const detail =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        err.message;
+      alert('Error al eliminar tema: ' + detail);
     }
   };
 
@@ -296,7 +348,87 @@ const TemaDetail = () => {
             </p>
           )}
         </div>
+        <div className="tema-config-container">
+          <button
+            type="button"
+            className="tema-config-btn"
+            onClick={() => setShowTemaMenu((prev) => !prev)}
+            aria-label="Configurar tema"
+            title="Configurar tema"
+          >
+            ⚙️
+          </button>
+          {showTemaMenu && (
+            <div className="tema-config-menu">
+              <button
+                type="button"
+                className="tema-config-menu-item"
+                onClick={() => {
+                  setShowEditTemaForm(true);
+                  setShowTemaMenu(false);
+                }}
+              >
+                Editar tema
+              </button>
+              <button
+                type="button"
+                className="tema-config-menu-item danger"
+                onClick={() => {
+                  setShowTemaMenu(false);
+                  handleDeleteTema();
+                }}
+              >
+                Eliminar tema
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {showEditTemaForm && (
+        <div className="section-card">
+          <div className="section-header">
+            <h2>✏️ Editar Tema</h2>
+          </div>
+          <form onSubmit={handleUpdateTema} className="material-form">
+            <div className="form-group">
+              <label>Título *</label>
+              <input
+                type="text"
+                value={editTemaForm.titulo}
+                onChange={(e) => setEditTemaForm((prev) => ({ ...prev, titulo: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Descripción</label>
+              <textarea
+                value={editTemaForm.descripcion}
+                onChange={(e) => setEditTemaForm((prev) => ({ ...prev, descripcion: e.target.value }))}
+                rows="3"
+              />
+            </div>
+            <div className="form-group">
+              <label>Fecha de clase</label>
+              <input
+                type="date"
+                value={editTemaForm.fecha_clase || ''}
+                onChange={(e) => setEditTemaForm((prev) => ({ ...prev, fecha_clase: e.target.value }))}
+              />
+            </div>
+            <div className="material-actions">
+              <button type="submit" className="btn-primary">Guardar cambios</button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowEditTemaForm(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Dashboard de Estadísticas */}
       {examen && (

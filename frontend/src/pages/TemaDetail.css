@@ -38,6 +38,10 @@
   color: white;
   box-shadow: var(--shadow-xl);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
 }
 
 .tema-header-section h1 {
@@ -67,6 +71,64 @@
   font-size: 15px;
   opacity: 0.9;
   font-weight: 500;
+}
+
+.tema-config-container {
+  position: relative;
+}
+
+.tema-config-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  font-size: 20px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transition: all var(--transition-base);
+}
+
+.tema-config-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(20deg);
+}
+
+.tema-config-menu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  min-width: 170px;
+  z-index: 10;
+  padding: 6px;
+}
+
+.tema-config-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.tema-config-menu-item:hover {
+  background: var(--gray-100);
+}
+
+.tema-config-menu-item.danger {
+  color: #b91c1c;
+}
+
+.tema-config-menu-item.danger:hover {
+  background: #fee2e2;
 }
 
 /* Dashboard de Estadísticas */
@@ -489,6 +551,7 @@
 @media (max-width: 768px) {
   .tema-header-section {
     padding: 32px 28px;
+    flex-direction: column;
   }
   
   .tema-header-section h1 {
