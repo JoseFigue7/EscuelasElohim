@@ -45,14 +45,15 @@ class MaterialSerializer(serializers.ModelSerializer):
 class TemaSerializer(serializers.ModelSerializer):
     materiales = MaterialSerializer(many=True, read_only=True)
     curso_nombre = serializers.CharField(source='curso.nombre', read_only=True)
+    numero_tema = serializers.IntegerField(required=False, allow_null=True)
     
     class Meta:
         model = Tema
         fields = '__all__'
         read_only_fields = ['fecha_creacion', 'fecha_actualizacion']
-        extra_kwargs = {
-            'numero_tema': {'required': False},
-        }
+        # Desactivamos el validador automático de unique_together porque fuerza
+        # numero_tema como obligatorio aun cuando lo autogeneramos en create().
+        validators = []
 
     def create(self, validated_data):
         # Si el frontend no envía numero_tema, usar el siguiente consecutivo por curso.
@@ -67,6 +68,13 @@ class TemaSerializer(serializers.ModelSerializer):
                 .first()
             )
             validated_data['numero_tema'] = (ultimo_numero or 0) + 1
+        elif Tema.objects.filter(
+            curso=validated_data['curso'],
+            numero_tema=validated_data['numero_tema']
+        ).exists():
+            raise serializers.ValidationError({
+                'numero_tema': 'Ya existe un tema con ese número en este curso.'
+            })
         return super().create(validated_data)
 
 
