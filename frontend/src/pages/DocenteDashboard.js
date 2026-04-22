@@ -50,10 +50,22 @@ const DocenteDashboard = () => {
   const handleCreatePromocion = async (e) => {
     e.preventDefault();
     try {
+      const selectedCursoId = Number(newPromocion.curso);
+      const cursoExiste = cursos.some((curso) => Number(curso.id) === selectedCursoId);
+      if (!Number.isInteger(selectedCursoId) || !cursoExiste) {
+        alert('El curso seleccionado ya no existe. Recarga la página y selecciona un curso válido.');
+        return;
+      }
+
+      const payload = {
+        ...newPromocion,
+        curso: selectedCursoId,
+      };
+
       if (editingPromocion) {
-        await promocionService.update(editingPromocion.id, newPromocion);
+        await promocionService.update(editingPromocion.id, payload);
       } else {
-        await promocionService.create(newPromocion);
+        await promocionService.create(payload);
       }
       setShowNewPromocion(false);
       setNewPromocion({
@@ -73,7 +85,7 @@ const DocenteDashboard = () => {
   const handleEditPromocion = (promocion) => {
     setEditingPromocion(promocion);
     setNewPromocion({
-      curso: promocion.curso,
+      curso: String(promocion.curso ?? ''),
       nombre: promocion.nombre,
       descripcion: promocion.descripcion || '',
       fecha_inicio: promocion.fecha_inicio ? promocion.fecha_inicio.split('T')[0] : '',

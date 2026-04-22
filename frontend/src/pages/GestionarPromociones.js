@@ -43,9 +43,16 @@ const GestionarPromociones = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const selectedCursoId = Number(formData.curso);
+      const cursoExiste = cursos.some((curso) => Number(curso.id) === selectedCursoId);
+      if (!Number.isInteger(selectedCursoId) || !cursoExiste) {
+        alert('El curso seleccionado ya no existe. Recarga la página y selecciona un curso válido.');
+        return;
+      }
+
       // Preparar los datos para enviar
       const dataToSend = {
-        curso: parseInt(formData.curso),
+        curso: selectedCursoId,
         nombre: formData.nombre,
         descripcion: formData.descripcion || '',
         fecha_inicio: formData.fecha_inicio,
@@ -73,7 +80,7 @@ const GestionarPromociones = () => {
   const handleEdit = (promocion) => {
     setEditingPromocion(promocion);
     setFormData({
-      curso: promocion.curso,
+      curso: String(promocion.curso ?? ''),
       nombre: promocion.nombre,
       descripcion: promocion.descripcion || '',
       fecha_inicio: promocion.fecha_inicio ? promocion.fecha_inicio.split('T')[0] : '',
