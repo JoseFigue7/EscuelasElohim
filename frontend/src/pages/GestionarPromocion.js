@@ -88,7 +88,14 @@ const GestionarPromocion = () => {
       loadData();
     } catch (err) {
       console.error('Error completo:', err.response?.data);
-      alert('Error al crear tema: ' + (err.response?.data?.detail || err.response?.data?.curso || err.message));
+      const data = err.response?.data;
+      const firstFieldError = data && typeof data === 'object'
+        ? Object.entries(data).find(([, value]) => Array.isArray(value) && value.length > 0)
+        : null;
+      const readableError = firstFieldError
+        ? `${firstFieldError[0]}: ${firstFieldError[1][0]}`
+        : (data?.detail || data?.curso || err.message);
+      alert('Error al crear tema: ' + readableError);
     }
   };
 

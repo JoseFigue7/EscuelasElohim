@@ -50,6 +50,24 @@ class TemaSerializer(serializers.ModelSerializer):
         model = Tema
         fields = '__all__'
         read_only_fields = ['fecha_creacion', 'fecha_actualizacion']
+        extra_kwargs = {
+            'numero_tema': {'required': False},
+        }
+
+    def create(self, validated_data):
+        # Si el frontend no envía numero_tema, usar el siguiente consecutivo por curso.
+        if validated_data.get('numero_tema') is None:
+            curso = validated_data.get('curso')
+            if curso is None:
+                raise serializers.ValidationError({'curso': 'Este campo es requerido.'})
+            ultimo_numero = (
+                Tema.objects.filter(curso=curso)
+                .order_by('-numero_tema')
+                .values_list('numero_tema', flat=True)
+                .first()
+            )
+            validated_data['numero_tema'] = (ultimo_numero or 0) + 1
+        return super().create(validated_data)
 
 
 class TemaListSerializer(serializers.ModelSerializer):
