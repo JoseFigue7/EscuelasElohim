@@ -148,6 +148,26 @@ const GestionarPromocion = () => {
     }
   };
 
+  const handleEliminarTema = async (tema) => {
+    const confirmacion = window.confirm(
+      `¿Estás seguro de eliminar el tema "${tema.titulo}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmacion) {
+      return;
+    }
+    try {
+      await temaService.delete(tema.id);
+      loadData();
+      alert('Tema eliminado correctamente');
+    } catch (err) {
+      const detail =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        err.message;
+      alert('Error al eliminar tema: ' + detail);
+    }
+  };
+
   const generarDiplomasPromocion = async ({ showAlert = true } = {}) => {
     try {
       const response = await diplomaService.generarDiplomas(id);
@@ -655,19 +675,29 @@ const GestionarPromocion = () => {
 
           <div className="temas-list">
             {filteredTemas.map((tema) => (
-              <Link
-                key={tema.id}
-                to={`/promociones/${id}/temas/${tema.id}`}
-                className="tema-item"
-              >
-                <div>
-                  <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
-                  {tema.fecha_clase && (
-                    <p>Fecha: {new Date(tema.fecha_clase).toLocaleDateString()}</p>
-                  )}
+              <div key={tema.id} className="tema-item">
+                <Link
+                  to={`/promociones/${id}/temas/${tema.id}`}
+                  className="tema-item-main"
+                >
+                  <div>
+                    <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
+                    {tema.fecha_clase && (
+                      <p>Fecha: {new Date(tema.fecha_clase).toLocaleDateString()}</p>
+                    )}
+                  </div>
+                  <span>→</span>
+                </Link>
+                <div className="tema-item-actions">
+                  <button
+                    type="button"
+                    className="btn-delete"
+                    onClick={() => handleEliminarTema(tema)}
+                  >
+                    Eliminar
+                  </button>
                 </div>
-                <span>→</span>
-              </Link>
+              </div>
             ))}
             {temas.length === 0 && (
               <div className="empty-state">

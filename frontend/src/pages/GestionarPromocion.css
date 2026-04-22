@@ -337,6 +337,25 @@
   color: inherit;
 }
 
+.tema-item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+}
+
+.tema-item-actions {
+  margin-left: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.tema-item-actions .btn-delete {
+  min-width: 96px;
+}
+
 .tema-item:hover,
 .alumno-item:hover,
 .pregunta-item:hover {
@@ -861,6 +880,16 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
+  }
+
+  .tema-item-main {
+    width: 100%;
+  }
+
+  .tema-item-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
   }
   
   .examen-item-header {
