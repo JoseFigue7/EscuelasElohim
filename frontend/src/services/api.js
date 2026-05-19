@@ -254,6 +254,13 @@ export const usuarioService = {
   update: (id, data) => api.put(`/auth/usuarios/${id}/`, data),
   delete: (id) => api.delete(`/auth/usuarios/${id}/`),
   cambiarPassword: (data) => api.post('/auth/usuarios/cambiar_password/', data),
+  importarCsv: (file) => {
+    const formData = new FormData();
+    formData.append('archivo', file);
+    return api.post('/auth/usuarios/importar-csv/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 export default api;
