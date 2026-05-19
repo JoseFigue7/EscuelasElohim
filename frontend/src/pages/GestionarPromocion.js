@@ -35,6 +35,7 @@ const GestionarPromocion = () => {
   });
   const [selectedAlumno, setSelectedAlumno] = useState('');
   const [alumnoSearch, setAlumnoSearch] = useState('');
+  const [inscripcionAlumnoSearch, setInscripcionAlumnoSearch] = useState('');
   const [temaSearch, setTemaSearch] = useState('');
 
   const resolveDiplomaUrl = (archivo) => {
@@ -56,7 +57,7 @@ const GestionarPromocion = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [promocionResponse, temasResponse, inscripcionesResponse, alumnosResponse] = await Promise.all([
+      const [promocionResponse, temasResponse, inscripcionesData, alumnosData] = await Promise.all([
         promocionService.getById(id),
         temaService.getAll(id),
         inscripcionService.getAll(id),
@@ -64,8 +65,8 @@ const GestionarPromocion = () => {
       ]);
       setPromocion(promocionResponse.data);
       setTemas(temasResponse.data.results || temasResponse.data);
-      setInscripciones(inscripcionesResponse.data.results || inscripcionesResponse.data);
-      setAlumnos(alumnosResponse.data.results || alumnosResponse.data);
+      setInscripciones(inscripcionesData);
+      setAlumnos(alumnosData);
     } catch (err) {
       console.error('Error al cargar datos:', err);
     } finally {
@@ -129,6 +130,7 @@ const GestionarPromocion = () => {
       });
       setShowNewInscripcion(false);
       setSelectedAlumno('');
+      setInscripcionAlumnoSearch('');
       loadData();
     } catch (err) {
       alert('Error al inscribir alumno: ' + (err.response?.data?.detail || err.message));
@@ -458,6 +460,24 @@ const GestionarPromocion = () => {
     );
   });
   const hasAlumnoSearch = normalizedAlumnoSearch.length > 0;
+  const inscritosAlumnoIds = new Set(
+    inscripciones.map((ins) => String(ins.alumno?.id ?? ins.alumno))
+  );
+  const normalizedInscripcionSearch = inscripcionAlumnoSearch.trim().toLowerCase();
+  const alumnosDisponiblesInscripcion = alumnos.filter(
+    (alumno) => !inscritosAlumnoIds.has(String(alumno.id))
+  );
+  const filteredAlumnosInscripcion = alumnosDisponiblesInscripcion.filter((alumno) => {
+    if (!normalizedInscripcionSearch) return true;
+    const nombre = `${alumno.first_name || ''} ${alumno.last_name || ''}`.trim().toLowerCase();
+    const username = (alumno.username || '').toLowerCase();
+    const email = (alumno.email || '').toLowerCase();
+    return (
+      nombre.includes(normalizedInscripcionSearch) ||
+      username.includes(normalizedInscripcionSearch) ||
+      email.includes(normalizedInscripcionSearch)
+    );
+  });
 
   return (
     <div className="gestionar-promocion">
@@ -746,32 +766,75 @@ const GestionarPromocion = () => {
               </div>
             </div>
             <div className="section-toolbar-right">
-              <button onClick={() => setShowNewInscripcion(!showNewInscripcion)} className="btn-primary">
+              <button
+                onClick={() => {
+                  if (showNewInscripcion) {
+                    setShowNewInscripcion(false);
+                    setInscripcionAlumnoSearch('');
+                    setSelectedAlumno('');
+                  } else {
+                    setShowNewInscripcion(true);
+                  }
+                }}
+                className="btn-primary"
+              >
                 {showNewInscripcion ? 'Cancelar' : '+ Inscribir Alumno'}
               </button>
             </div>
           </div>
 
           {showNewInscripcion && (
-            <form onSubmit={handleInscribirAlumno} className="new-form">
+            <form onSubmit={handleInscribirAlumno} className="new-form inscripcion-form">
               <div className="form-group">
-                <label>Seleccionar Alumno *</label>
-                <select
-                  value={selectedAlumno}
-                  onChange={(e) => setSelectedAlumno(e.target.value)}
-                  required
-                >
-                  <option value="">Seleccionar...</option>
-                  {alumnos
-                    .filter(alumno => !inscripciones.some(ins => ins.alumno === alumno.id))
-                    .map((alumno) => (
-                      <option key={alumno.id} value={alumno.id}>
-                        {alumno.first_name} {alumno.last_name} ({alumno.username})
-                      </option>
-                    ))}
-                </select>
+                <label>Buscar alumno para inscribir *</label>
+                <input
+                  type="text"
+                  value={inscripcionAlumnoSearch}
+                  onChange={(e) => {
+                    setInscripcionAlumnoSearch(e.target.value);
+                    setSelectedAlumno('');
+                  }}
+                  className="temas-search-input"
+                  placeholder="Nombre, usuario o correo..."
+                  autoFocus
+                />
+                <small className="inscripcion-search-hint">
+                  {filteredAlumnosInscripcion.length} alumno(s) disponible(s)
+                  {alumnosDisponiblesInscripcion.length !== alumnos.length &&
+                    ` · ${alumnos.length - alumnosDisponiblesInscripcion.length} ya inscrito(s)`}
+                </small>
               </div>
-              <button type="submit" className="btn-primary">Inscribir</button>
+              <div className="alumno-picker-list">
+                {filteredAlumnosInscripcion.length === 0 ? (
+                  <p className="alumno-picker-empty">
+                    {alumnosDisponiblesInscripcion.length === 0
+                      ? 'Todos los alumnos ya están inscritos en esta promoción.'
+                      : 'No hay alumnos que coincidan con tu búsqueda.'}
+                  </p>
+                ) : (
+                  filteredAlumnosInscripcion.map((alumno) => {
+                    const nombre = `${alumno.first_name || ''} ${alumno.last_name || ''}`.trim();
+                    const isSelected = String(selectedAlumno) === String(alumno.id);
+                    return (
+                      <button
+                        key={alumno.id}
+                        type="button"
+                        className={`alumno-picker-item${isSelected ? ' selected' : ''}`}
+                        onClick={() => setSelectedAlumno(String(alumno.id))}
+                      >
+                        <span className="alumno-picker-name">{nombre || alumno.username}</span>
+                        <span className="alumno-picker-meta">@{alumno.username}</span>
+                        {alumno.email && (
+                          <span className="alumno-picker-meta">{alumno.email}</span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <button type="submit" className="btn-primary" disabled={!selectedAlumno}>
+                Inscribir alumno seleccionado
+              </button>
             </form>
           )}
 

@@ -89,6 +89,16 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         tipo = self.request.query_params.get('tipo')
         if tipo:
             queryset = queryset.filter(tipo=tipo)
+
+        buscar = self.request.query_params.get('buscar', '').strip()
+        if buscar:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(username__icontains=buscar)
+                | Q(first_name__icontains=buscar)
+                | Q(last_name__icontains=buscar)
+                | Q(email__icontains=buscar)
+            )
         
         return queryset
     

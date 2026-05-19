@@ -37,8 +37,8 @@ mlopez,María,López,maria@ejemplo.com,5555-5678`;
   const loadUsuarios = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await usuarioService.getAll(tipoFiltro || null);
-      setUsuarios(response.data.results || response.data);
+      const data = await usuarioService.getAll(tipoFiltro || null);
+      setUsuarios(data);
     } catch (err) {
       console.error('Error al cargar usuarios:', err);
       alert('Error al cargar usuarios');

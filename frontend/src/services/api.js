@@ -58,6 +58,28 @@ api.interceptors.response.use(
   }
 );
 
+/** Recorre todas las páginas de un listado paginado del API. */
+export async function fetchAllPaginated(requestPage, pageSize = 100) {
+  const results = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await requestPage(page, pageSize);
+    const data = response.data;
+
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    results.push(...(data.results || []));
+    hasMore = Boolean(data.next);
+    page += 1;
+  }
+
+  return results;
+}
+
 // Servicio de Autenticación
 export const authService = {
   login: async (username, password) => {
@@ -157,8 +179,12 @@ export const materialService = {
 
 // Servicio de Inscripciones
 export const inscripcionService = {
-  getAll: (promocionId) => 
-    api.get('/inscripciones/', { params: promocionId ? { promocion: promocionId } : {} }),
+  getAll: async (promocionId) => {
+    const params = promocionId ? { promocion: promocionId } : {};
+    return fetchAllPaginated((page, pageSize) =>
+      api.get('/inscripciones/', { params: { ...params, page, page_size: pageSize } })
+    );
+  },
   getById: (id) => api.get(`/inscripciones/${id}/`),
   create: (data) => api.post('/inscripciones/', data),
   update: (id, data) => api.patch(`/inscripciones/${id}/`, data),
@@ -247,8 +273,14 @@ export const diplomaService = {
 
 // Servicio de Usuarios (Admin)
 export const usuarioService = {
-  getAll: (tipo) => 
-    api.get('/auth/usuarios/', { params: tipo ? { tipo } : {} }),
+  getAll: async (tipo, buscar) => {
+    const params = {};
+    if (tipo) params.tipo = tipo;
+    if (buscar) params.buscar = buscar;
+    return fetchAllPaginated((page, pageSize) =>
+      api.get('/auth/usuarios/', { params: { ...params, page, page_size: pageSize } })
+    );
+  },
   getById: (id) => api.get(`/auth/usuarios/${id}/`),
   create: (data) => api.post('/auth/usuarios/', data),
   update: (id, data) => api.put(`/auth/usuarios/${id}/`, data),
