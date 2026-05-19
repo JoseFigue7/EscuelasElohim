@@ -73,6 +73,22 @@ const GestionarPromocion = () => {
     }
   }, [id]);
 
+  const handleToggleTemaVisible = async (tema, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await temaService.patch(tema.id, {
+        visible_para_estudiante: tema.visible_para_estudiante === false,
+      });
+      loadData();
+    } catch (err) {
+      alert(
+        'Error al actualizar visibilidad del tema: ' +
+          (err.response?.data?.detail || err.message)
+      );
+    }
+  };
+
   const handleCreateTema = async (e) => {
     e.preventDefault();
     if (!promocion || !promocion.curso) {
@@ -584,7 +600,8 @@ const GestionarPromocion = () => {
               <h2>Temas del Curso</h2>
               {promocion && promocion.curso_nombre && (
                 <p style={{margin: '4px 0 0 0', color: '#666', fontSize: '0.95rem'}}>
-                  Curso: <strong>{promocion.curso_nombre}</strong> - Los temas se comparten entre todas las promociones de este curso
+                  Curso: <strong>{promocion.curso_nombre}</strong> - Los temas se comparten entre todas las promociones de este curso.
+                  Usa el interruptor &quot;Visible&quot; para mostrar u ocultar cada tema a los estudiantes.
                 </p>
               )}
             </div>
@@ -658,15 +675,35 @@ const GestionarPromocion = () => {
               <Link
                 key={tema.id}
                 to={`/promociones/${id}/temas/${tema.id}`}
-                className="tema-item"
+                className={`tema-item ${tema.visible_para_estudiante === false ? 'tema-oculto' : ''}`}
               >
-                <div>
+                <div className="tema-item-main">
                   <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
                   {tema.fecha_clase && (
                     <p>Fecha: {new Date(tema.fecha_clase).toLocaleDateString()}</p>
                   )}
+                  {tema.visible_para_estudiante === false && (
+                    <span className="tema-oculto-badge">Oculto para estudiantes</span>
+                  )}
                 </div>
-                <span>→</span>
+                <div className="tema-item-actions">
+                  <label
+                    className="switch-label"
+                    title={tema.visible_para_estudiante !== false ? 'Visible para estudiantes' : 'Oculto para estudiantes'}
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <span className="switch-text">Visible</span>
+                    <span className="switch">
+                      <input
+                        type="checkbox"
+                        checked={tema.visible_para_estudiante !== false}
+                        onChange={(e) => handleToggleTemaVisible(tema, e)}
+                      />
+                      <span className="switch-slider" />
+                    </span>
+                  </label>
+                  <span className="tema-item-arrow">→</span>
+                </div>
               </Link>
             ))}
             {temas.length === 0 && (

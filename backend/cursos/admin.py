@@ -39,16 +39,16 @@ class PreguntaInline(admin.TabularInline):
 
 @admin.register(Tema)
 class TemaAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'curso', 'numero_tema', 'fecha_clase')
-    list_filter = ('curso', 'fecha_clase')
+    list_display = ('titulo', 'curso', 'numero_tema', 'fecha_clase', 'visible_para_estudiante')
+    list_filter = ('curso', 'fecha_clase', 'visible_para_estudiante')
     search_fields = ('titulo', 'descripcion')
     inlines = [MaterialInline, PreguntaInline]
 
 
 @admin.register(Material)
 class MaterialAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'tema', 'fecha_creacion')
-    list_filter = ('tema__curso', 'fecha_creacion')
+    list_display = ('titulo', 'tema', 'tipo', 'fecha_creacion')
+    list_filter = ('tipo', 'tema__curso', 'fecha_creacion')
     search_fields = ('titulo', 'descripcion')
 
 

@@ -138,10 +138,24 @@
   font-weight: 700;
 }
 
-.materiales ul {
+.materiales ul,
+.materiales-cards {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+.materiales-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.material-card {
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
 }
 
 .material-item {

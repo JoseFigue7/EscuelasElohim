@@ -29,6 +29,7 @@ class PromocionSerializer(serializers.ModelSerializer):
 
 class MaterialSerializer(serializers.ModelSerializer):
     nombre_archivo = serializers.SerializerMethodField()
+    archivo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Material
@@ -38,8 +39,43 @@ class MaterialSerializer(serializers.ModelSerializer):
     def get_nombre_archivo(self, obj):
         """Retorna el nombre del archivo original"""
         if obj.archivo:
-            return obj.archivo.name.split('/')[-1]  # Obtener solo el nombre del archivo
+            return obj.archivo.name.split('/')[-1]
         return None
+
+    def get_archivo_url(self, obj):
+        if not obj.archivo:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.archivo.url)
+        return obj.archivo.url
+
+    def validate(self, attrs):
+        tipo = attrs.get('tipo')
+        if self.instance:
+            tipo = tipo or self.instance.tipo
+        else:
+            tipo = tipo or 'archivo'
+
+        archivo = attrs.get('archivo')
+        url = attrs.get('url')
+        tiene_archivo = bool(archivo) or bool(self.instance and self.instance.archivo)
+        tiene_url = bool(url) or bool(self.instance and self.instance.url)
+
+        if tipo == 'archivo' and not tiene_archivo:
+            raise serializers.ValidationError({
+                'archivo': 'Debe subir un archivo para este tipo de material.'
+            })
+        if tipo == 'enlace':
+            if not tiene_url:
+                raise serializers.ValidationError({
+                    'url': 'Debe indicar la URL del enlace.'
+                })
+        if tipo == 'imagen' and not tiene_archivo and not tiene_url:
+            raise serializers.ValidationError({
+                'archivo': 'Suba una imagen o indique una URL de imagen.'
+            })
+        return attrs
 
 
 class TemaSerializer(serializers.ModelSerializer):
@@ -83,7 +119,10 @@ class TemaListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Tema
-        fields = ['id', 'numero_tema', 'titulo', 'descripcion', 'fecha_clase', 'curso_nombre']
+        fields = [
+            'id', 'numero_tema', 'titulo', 'descripcion', 'fecha_clase',
+            'curso_nombre', 'visible_para_estudiante',
+        ]
 
 
 class InscripcionSerializer(serializers.ModelSerializer):

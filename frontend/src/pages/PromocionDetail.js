@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { temaService, materialService } from '../services/api';
+import MaterialContent from '../components/MaterialContent';
 import './PromocionDetail.css';
 
 const PromocionDetail = () => {
@@ -140,16 +141,15 @@ const PromocionDetail = () => {
                 {selectedTema.materiales && selectedTema.materiales.length > 0 ? (
                   <div className="materiales">
                     <h4>Materiales:</h4>
-                    <ul>
+                    <ul className="materiales-cards">
                       {selectedTema.materiales.map((material) => (
-                        <li key={material.id} className="material-item">
-                          <span>{material.titulo}</span>
-                          <button
-                            onClick={() => handleDownload(material.id, material)}
-                            className="btn-download"
-                          >
-                            Descargar
-                          </button>
+                        <li key={material.id} className="material-card">
+                          <MaterialContent
+                            material={material}
+                            onDownload={handleDownload}
+                            showTitle
+                            compact
+                          />
                         </li>
                       ))}
                     </ul>

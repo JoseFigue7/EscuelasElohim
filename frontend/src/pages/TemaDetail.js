@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { temaService, materialService, examenService, calificacionService, inscripcionService, promocionService, recuperacionService } from '../services/api';
+import MaterialContent from '../components/MaterialContent';
 import './TemaDetail.css';
 
 const TemaDetail = () => {
@@ -26,9 +27,11 @@ const TemaDetail = () => {
     fecha_clase: '',
   });
   const [materialForm, setMaterialForm] = useState({
+    tipo: 'archivo',
     titulo: '',
     descripcion: '',
     archivo: null,
+    url: '',
   });
   const [recuperacionForm, setRecuperacionForm] = useState({
     inscripciones: [], // Array de IDs de inscripciones seleccionadas
@@ -105,29 +108,45 @@ const TemaDetail = () => {
 
   const handleMaterialSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const formData = new FormData();
-      formData.append('tema', temaId);
-      formData.append('titulo', materialForm.titulo);
-      if (materialForm.descripcion) {
-        formData.append('descripcion', materialForm.descripcion);
-      }
-      if (materialForm.archivo) {
-        formData.append('archivo', materialForm.archivo);
-      }
+    const { tipo, titulo, descripcion, archivo, url } = materialForm;
 
+    if (tipo === 'archivo' && !archivo) {
+      alert('Selecciona un archivo para subir.');
+      return;
+    }
+    if (tipo === 'enlace' && !url.trim()) {
+      alert('Ingresa la URL del enlace.');
+      return;
+    }
+    if (tipo === 'imagen' && !archivo && !url.trim()) {
+      alert('Sube una imagen o ingresa la URL de una imagen.');
+      return;
+    }
+
+    try {
       await materialService.create({
         tema: temaId,
-        titulo: materialForm.titulo,
-        descripcion: materialForm.descripcion,
-        archivo: materialForm.archivo,
+        tipo,
+        titulo,
+        descripcion,
+        archivo: archivo || undefined,
+        url: url.trim() || undefined,
       });
 
-      setMaterialForm({ titulo: '', descripcion: '', archivo: null });
+      setMaterialForm({ tipo: 'archivo', titulo: '', descripcion: '', archivo: null, url: '' });
       setShowMaterialForm(false);
       loadData();
     } catch (err) {
-      alert('Error al subir material: ' + (err.response?.data?.detail || err.message));
+      const data = err.response?.data;
+      const msg =
+        (data && typeof data === 'object'
+          ? Object.entries(data)
+              .map(([k, v]) => `${k}: ${Array.isArray(v) ? v[0] : v}`)
+              .join('\n')
+          : null) ||
+        data?.detail ||
+        err.message;
+      alert('Error al guardar material: ' + msg);
     }
   };
 
@@ -140,6 +159,20 @@ const TemaDetail = () => {
       loadData();
     } catch (err) {
       alert('Error al eliminar material');
+    }
+  };
+
+  const handleToggleVisibleParaEstudiante = async () => {
+    try {
+      await temaService.patch(temaId, {
+        visible_para_estudiante: tema.visible_para_estudiante === false,
+      });
+      await loadData();
+    } catch (err) {
+      alert(
+        'Error al actualizar visibilidad: ' +
+          (err.response?.data?.detail || err.message)
+      );
     }
   };
 
@@ -348,7 +381,22 @@ const TemaDetail = () => {
             </p>
           )}
         </div>
-        <div className="tema-config-container">
+        <div className="tema-header-controls">
+          <label
+            className="tema-visible-switch"
+            title={tema.visible_para_estudiante !== false ? 'Visible para estudiantes' : 'Oculto para estudiantes'}
+          >
+            <span>Visible para estudiantes</span>
+            <span className="switch">
+              <input
+                type="checkbox"
+                checked={tema.visible_para_estudiante !== false}
+                onChange={handleToggleVisibleParaEstudiante}
+              />
+              <span className="switch-slider" />
+            </span>
+          </label>
+          <div className="tema-config-container">
           <button
             type="button"
             className="tema-config-btn"
@@ -382,6 +430,7 @@ const TemaDetail = () => {
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -471,19 +520,47 @@ const TemaDetail = () => {
             onClick={() => setShowMaterialForm(!showMaterialForm)} 
             className="btn-primary"
           >
-            {showMaterialForm ? 'Cancelar' : '+ Subir Material'}
+            {showMaterialForm ? 'Cancelar' : '+ Añadir Material'}
           </button>
         </div>
 
         {showMaterialForm && (
           <form onSubmit={handleMaterialSubmit} className="material-form">
             <div className="form-group">
-              <label>Título del Material *</label>
+              <label>Tipo de material *</label>
+              <div className="material-tipo-options">
+                {[
+                  { value: 'archivo', label: '📄 Archivo' },
+                  { value: 'enlace', label: '🔗 Enlace' },
+                  { value: 'imagen', label: '🖼️ Imagen' },
+                ].map((opt) => (
+                  <label key={opt.value} className="material-tipo-option">
+                    <input
+                      type="radio"
+                      name="material-tipo"
+                      value={opt.value}
+                      checked={materialForm.tipo === opt.value}
+                      onChange={() =>
+                        setMaterialForm({
+                          ...materialForm,
+                          tipo: opt.value,
+                          archivo: null,
+                          url: '',
+                        })
+                      }
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Título *</label>
               <input
                 type="text"
                 value={materialForm.titulo}
                 onChange={(e) => setMaterialForm({ ...materialForm, titulo: e.target.value })}
-                placeholder="Ej: Guía de estudio, Presentación, etc."
+                placeholder="Ej: Guía de estudio, Video de clase, Diagrama..."
                 required
               />
             </div>
@@ -496,41 +573,88 @@ const TemaDetail = () => {
                 rows="3"
               />
             </div>
-            <div className="form-group">
-              <label>Archivo *</label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar"
-                onChange={(e) => setMaterialForm({ ...materialForm, archivo: e.target.files[0] })}
-                required
-              />
-              <small style={{display: 'block', marginTop: '8px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5'}}>
-                <strong>Tipos de archivos permitidos:</strong> PDF, Word (.doc, .docx), PowerPoint (.ppt, .pptx), Excel (.xls, .xlsx), Texto (.txt), Imágenes (.jpg, .jpeg, .png, .gif), Archivos comprimidos (.zip, .rar)
-              </small>
-            </div>
-            <button type="submit" className="btn-primary">Subir Material</button>
+            {materialForm.tipo === 'enlace' && (
+              <div className="form-group">
+                <label>URL del enlace *</label>
+                <input
+                  type="url"
+                  value={materialForm.url}
+                  onChange={(e) => setMaterialForm({ ...materialForm, url: e.target.value })}
+                  placeholder="https://ejemplo.com/recurso"
+                  required
+                />
+              </div>
+            )}
+            {materialForm.tipo === 'archivo' && (
+              <div className="form-group">
+                <label>Archivo *</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar"
+                  onChange={(e) =>
+                    setMaterialForm({ ...materialForm, archivo: e.target.files[0] || null })
+                  }
+                  required
+                />
+                <small className="form-hint">
+                  PDF, Word, PowerPoint, Excel, texto o archivos comprimidos.
+                </small>
+              </div>
+            )}
+            {materialForm.tipo === 'imagen' && (
+              <>
+                <div className="form-group">
+                  <label>Subir imagen</label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) =>
+                      setMaterialForm({ ...materialForm, archivo: e.target.files[0] || null })
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>O URL de imagen</label>
+                  <input
+                    type="url"
+                    value={materialForm.url}
+                    onChange={(e) => setMaterialForm({ ...materialForm, url: e.target.value })}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                  />
+                  <small className="form-hint">
+                    La imagen se mostrará directamente en la lista de materiales.
+                  </small>
+                </div>
+              </>
+            )}
+            <button type="submit" className="btn-primary">Guardar material</button>
           </form>
         )}
 
         <div className="materiales-list">
           {materiales.length > 0 ? (
             materiales.map((material) => (
-              <div key={material.id} className="material-item">
-                <div className="material-info">
-                  <h4>{material.titulo}</h4>
-                  {material.descripcion && <p>{material.descripcion}</p>}
-                  <span className="material-date">
-                    Subido: {new Date(material.fecha_creacion).toLocaleDateString()}
-                  </span>
-                </div>
+              <div key={material.id} className="material-item material-item--full">
+                <MaterialContent
+                  material={material}
+                  onDownload={handleDownload}
+                  showTitle
+                />
+                <span className="material-type-badge">
+                  {material.tipo === 'enlace' ? 'Enlace' : material.tipo === 'imagen' ? 'Imagen' : 'Archivo'}
+                </span>
                 <div className="material-actions">
+                  {material.tipo === 'archivo' && (
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(material.id, material)}
+                      className="btn-download"
+                    >
+                      📥 Descargar
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleDownload(material.id, material)}
-                    className="btn-download"
-                  >
-                    📥 Descargar
-                  </button>
-                  <button
+                    type="button"
                     onClick={() => handleDeleteMaterial(material.id)}
                     className="btn-delete"
                   >

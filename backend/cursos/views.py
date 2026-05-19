@@ -81,7 +81,10 @@ class TemaViewSet(viewsets.ModelViewSet):
                 alumno=user, activa=True
             ).select_related('promocion__curso')
             curso_ids = [insc.promocion.curso_id for insc in inscripciones]
-            queryset = queryset.filter(curso_id__in=curso_ids)
+            queryset = queryset.filter(
+                curso_id__in=curso_ids,
+                visible_para_estudiante=True,
+            )
         
         # Filtrar por promoción: obtener el curso de la promoción
         promocion_id = self.request.query_params.get('promocion')
@@ -115,7 +118,10 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 alumno=user, activa=True
             ).select_related('promocion__curso')
             curso_ids = [insc.promocion.curso_id for insc in inscripciones]
-            queryset = queryset.filter(tema__curso_id__in=curso_ids)
+            queryset = queryset.filter(
+                tema__curso_id__in=curso_ids,
+                tema__visible_para_estudiante=True,
+            )
         
         # Filtrar por tema si se proporciona
         tema_id = self.request.query_params.get('tema')
@@ -236,7 +242,11 @@ class ExamenViewSet(viewsets.ModelViewSet):
                 alumno=user, activa=True
             ).select_related('promocion__curso')
             curso_ids = [insc.promocion.curso_id for insc in inscripciones]
-            queryset = queryset.filter(tema__curso_id__in=curso_ids, activo=True)
+            queryset = queryset.filter(
+                tema__curso_id__in=curso_ids,
+                tema__visible_para_estudiante=True,
+                activo=True,
+            )
             
             # Si no se está filtrando por tema específico, solo mostrar exámenes disponibles ahora
             tema_id = self.request.query_params.get('tema')

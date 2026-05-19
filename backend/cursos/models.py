@@ -55,6 +55,10 @@ class Tema(models.Model):
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
     fecha_clase = models.DateField(blank=True, null=True)
+    visible_para_estudiante = models.BooleanField(
+        default=True,
+        help_text='Si está desactivado, el tema no se muestra a los estudiantes'
+    )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
     
@@ -70,10 +74,18 @@ class Tema(models.Model):
 
 class Material(models.Model):
     """Modelo para los materiales de cada tema"""
+    TIPO_CHOICES = [
+        ('archivo', 'Archivo'),
+        ('enlace', 'Enlace'),
+        ('imagen', 'Imagen'),
+    ]
+
     tema = models.ForeignKey(Tema, on_delete=models.CASCADE, related_name='materiales')
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
-    archivo = models.FileField(upload_to='materiales/')
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='archivo')
+    url = models.URLField(blank=True, null=True, max_length=500)
+    archivo = models.FileField(upload_to='materiales/', blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     
     class Meta:

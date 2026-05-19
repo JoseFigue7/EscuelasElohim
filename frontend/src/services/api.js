@@ -130,6 +130,7 @@ export const temaService = {
   getById: (id) => api.get(`/temas/${id}/`),
   create: (data) => api.post('/temas/', data),
   update: (id, data) => api.put(`/temas/${id}/`, data),
+  patch: (id, data) => api.patch(`/temas/${id}/`, data),
   delete: (id) => api.delete(`/temas/${id}/`),
 };
 
@@ -142,7 +143,9 @@ export const materialService = {
     const formData = new FormData();
     formData.append('tema', data.tema);
     formData.append('titulo', data.titulo);
+    formData.append('tipo', data.tipo || 'archivo');
     if (data.descripcion) formData.append('descripcion', data.descripcion);
+    if (data.url) formData.append('url', data.url);
     if (data.archivo) formData.append('archivo', data.archivo);
     return api.post('/materiales/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
