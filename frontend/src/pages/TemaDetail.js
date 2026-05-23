@@ -354,19 +354,6 @@ const TemaDetail = () => {
     return { inscripcion: ins, estado: 'reprobado', calificacion: cal };
   });
 
-  const seleccionarParaRecuperacion = () => {
-    const ids = estudiantesEstado
-      .filter((item) => {
-        if (item.estado === 'reprobado') return true;
-        if (item.estado === 'pendiente' && examen?.recuperacion_incluye_no_realizados) {
-          return true;
-        }
-        return false;
-      })
-      .map((item) => item.inscripcion.id);
-    setRecuperacionForm((prev) => ({ ...prev, inscripciones: ids }));
-  };
-
   const estadisticas = {
     totalEstudiantes: inscripciones.length,
     estudiantesConExamen: calificacionesNormales.length,
@@ -551,9 +538,6 @@ const TemaDetail = () => {
           </div>
           <p className="examen-config-hint">
             Umbral de aprobación: {umbralAprobacion}%
-            {examen.permitir_recuperacion
-              ? ` · Recuperación ${examen.recuperacion_incluye_no_realizados ? 'incluye pendientes' : 'solo reprobados'}`
-              : ' · Recuperación deshabilitada'}
           </p>
 
           <div className="estudiantes-estado-section">
@@ -830,21 +814,21 @@ const TemaDetail = () => {
           {/* Sección de Recuperaciones */}
           <div className="recuperaciones-section">
             <div className="section-header" style={{marginTop: '40px', paddingTop: '32px', borderTop: '2px solid var(--border-color-light)'}}>
-              <h2>🔄 Recuperaciones</h2>
-              {examen.permitir_recuperacion && (
-                <button
-                  onClick={() => setShowRecuperacionForm(!showRecuperacionForm)}
-                  className="btn-primary"
-                >
-                  {showRecuperacionForm ? 'Cancelar' : '+ Nueva Recuperación'}
-                </button>
-              )}
+              <div>
+                <h2>🔄 Recuperación (opcional)</h2>
+                <p className="examen-config-hint" style={{ margin: '4px 0 0' }}>
+                  Tú decides si haces recuperación, cuándo y para qué estudiantes.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowRecuperacionForm(!showRecuperacionForm)}
+                className="btn-primary"
+              >
+                {showRecuperacionForm ? 'Cancelar' : '+ Nueva Recuperación'}
+              </button>
             </div>
-            {!examen.permitir_recuperacion && (
-              <p className="examen-config-hint">Las recuperaciones están deshabilitadas para este examen.</p>
-            )}
 
-            {showRecuperacionForm && examen.permitir_recuperacion && (
+            {showRecuperacionForm && (
               <form onSubmit={handleCreateRecuperacion} className="material-form" style={{marginTop: '24px'}}>
                 <div className="form-group">
                   <label>Seleccionar Estudiantes *</label>
@@ -879,22 +863,6 @@ const TemaDetail = () => {
                             }}
                           >
                             Seleccionar todos
-                          </button>
-                          <button
-                            type="button"
-                            onClick={seleccionarParaRecuperacion}
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '14px',
-                              backgroundColor: '#eff6ff',
-                              border: '1px solid #93c5fd',
-                              borderRadius: '6px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {examen.recuperacion_incluye_no_realizados
-                              ? 'Seleccionar reprobados y pendientes'
-                              : 'Seleccionar reprobados'}
                           </button>
                           <button
                             type="button"

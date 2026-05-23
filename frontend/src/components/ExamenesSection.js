@@ -14,8 +14,6 @@ const ExamenesSection = ({ temas, onRefresh }) => {
     fecha_inicio: '',
     fecha_fin: '',
     porcentaje_aprobacion: 70,
-    permitir_recuperacion: true,
-    recuperacion_incluye_no_realizados: false,
     activo: true,
   });
 
@@ -57,8 +55,6 @@ const ExamenesSection = ({ temas, onRefresh }) => {
         fecha_inicio: examen.fecha_inicio ? examen.fecha_inicio.substring(0, 16) : '',
         fecha_fin: examen.fecha_fin ? examen.fecha_fin.substring(0, 16) : '',
         porcentaje_aprobacion: examen.porcentaje_aprobacion ?? 70,
-        permitir_recuperacion: examen.permitir_recuperacion !== false,
-        recuperacion_incluye_no_realizados: Boolean(examen.recuperacion_incluye_no_realizados),
         activo: examen.activo !== undefined ? examen.activo : true,
       });
     } else {
@@ -71,8 +67,6 @@ const ExamenesSection = ({ temas, onRefresh }) => {
         fecha_inicio: '',
         fecha_fin: '',
         porcentaje_aprobacion: 70,
-        permitir_recuperacion: true,
-        recuperacion_incluye_no_realizados: false,
         activo: true,
       });
     }
@@ -122,8 +116,6 @@ const ExamenesSection = ({ temas, onRefresh }) => {
       fecha_inicio: '',
       fecha_fin: '',
       porcentaje_aprobacion: 70,
-      permitir_recuperacion: true,
-      recuperacion_incluye_no_realizados: false,
       activo: true,
     });
   };
@@ -243,32 +235,6 @@ const ExamenesSection = ({ temas, onRefresh }) => {
             <label className="checkbox-label">
               <input
                 type="checkbox"
-                checked={formData.permitir_recuperacion}
-                onChange={(e) => setFormData({ ...formData, permitir_recuperacion: e.target.checked })}
-              />
-              <span>Permitir examen de recuperación</span>
-            </label>
-          </div>
-
-          {formData.permitir_recuperacion && (
-            <div className="form-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={formData.recuperacion_incluye_no_realizados}
-                  onChange={(e) =>
-                    setFormData({ ...formData, recuperacion_incluye_no_realizados: e.target.checked })
-                  }
-                />
-                <span>Recuperación también para quienes no hicieron el examen</span>
-              </label>
-            </div>
-          )}
-
-          <div className="form-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
                 checked={formData.activo}
                 onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
               />
@@ -341,14 +307,6 @@ const ExamenesSection = ({ temas, onRefresh }) => {
                     <div className="examen-info-item">
                       <span className="examen-info-label">Aprobación:</span>
                       <span className="examen-info-value">≥{examen.porcentaje_aprobacion ?? 70}%</span>
-                    </div>
-                    <div className="examen-info-item">
-                      <span className="examen-info-label">Recuperación:</span>
-                      <span className="examen-info-value">
-                        {examen.permitir_recuperacion !== false
-                          ? (examen.recuperacion_incluye_no_realizados ? 'Reprobados y pendientes' : 'Solo reprobados')
-                          : 'No permitida'}
-                      </span>
                     </div>
                     <div className="examen-info-item">
                       <span className="examen-info-label">Estado:</span>
