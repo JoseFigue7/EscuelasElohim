@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { usuarioService } from '../services/api';
+import { usuarioService, unwrapList } from '../services/api';
 import './GestionarUsuarios.css';
 
 const GestionarUsuarios = () => {
@@ -37,7 +37,7 @@ mlopez,María,López,maria@ejemplo.com,5555-5678`;
   const loadUsuarios = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await usuarioService.getAll(tipoFiltro || null);
+      const data = unwrapList(await usuarioService.getAll(tipoFiltro || null));
       setUsuarios(data);
     } catch (err) {
       console.error('Error al cargar usuarios:', err);

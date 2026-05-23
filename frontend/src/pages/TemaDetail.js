@@ -58,12 +58,14 @@ const TemaDetail = () => {
       setError('');
       
       // Cargar datos en paralelo
-      const [temaResponse, promocionResponse, materialesResponse, inscripcionesData] = await Promise.all([
+      const [temaResponse, promocionResponse, materialesResponse, inscripcionesResponse] = await Promise.all([
         temaService.getById(temaId),
         promocionService.getById(promocionId),
         materialService.getAll(temaId),
         inscripcionService.getAll(promocionId),
       ]);
+
+      const inscripcionesData = unwrapList(inscripcionesResponse);
 
       setTema(temaResponse.data);
       setEditTemaForm({
@@ -83,12 +85,12 @@ const TemaDetail = () => {
           setExamen(examenes[0]);
           
           // Cargar calificaciones del examen
-          const calificacionesData = await calificacionService.getAll(examenes[0].id);
-          setCalificaciones(calificacionesData);
+          const calificacionesResponse = await calificacionService.getAll(examenes[0].id);
+          setCalificaciones(unwrapList(calificacionesResponse));
           
           // Cargar recuperaciones del examen
-          const recuperacionesData = await recuperacionService.getAll(examenes[0].id);
-          setRecuperaciones(recuperacionesData);
+          const recuperacionesResponse = await recuperacionService.getAll(examenes[0].id);
+          setRecuperaciones(unwrapList(recuperacionesResponse));
           
           // Cargar recuperaciones totales por inscripción
           const totalesMap = {};

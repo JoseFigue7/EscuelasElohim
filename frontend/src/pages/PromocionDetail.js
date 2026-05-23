@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { temaService, materialService } from '../services/api';
+import { temaService, materialService, unwrapList } from '../services/api';
 import MaterialContent from '../components/MaterialContent';
 import './PromocionDetail.css';
 
@@ -15,7 +15,7 @@ const PromocionDetail = () => {
     try {
       setLoading(true);
       const response = await temaService.getAll(id);
-      setTemas(response.data.results || response.data);
+      setTemas(unwrapList(response));
       setError('');
     } catch (err) {
       setError('Error al cargar los temas');

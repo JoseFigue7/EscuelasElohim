@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { promocionService, cursoService } from '../services/api';
+import { promocionService, cursoService, unwrapList } from '../services/api';
 import './Dashboard.css';
 
 const DocenteDashboard = () => {
@@ -26,8 +26,8 @@ const DocenteDashboard = () => {
         promocionService.getAll(),
         cursoService.getAll(),
       ]);
-      setPromociones(promResponse.data.results || promResponse.data);
-      setCursos(cursosResponse.data.results || cursosResponse.data);
+      setPromociones(unwrapList(promResponse));
+      setCursos(unwrapList(cursosResponse));
       setError('');
     } catch (err) {
       const status = err.response?.status;

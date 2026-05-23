@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { examenService } from '../services/api';
+import { examenService, unwrapList } from '../services/api';
 import './TemaExamenes.css';
 
 const ExamenesList = () => {
@@ -17,7 +17,7 @@ const ExamenesList = () => {
       setLoading(true);
       // Llamar sin parámetro de tema para obtener todos los exámenes activos disponibles
       const response = await examenService.getAll();
-      setExamenes(response.data.results || response.data);
+      setExamenes(unwrapList(response));
       setError('');
     } catch (err) {
       setError('Error al cargar los exámenes');

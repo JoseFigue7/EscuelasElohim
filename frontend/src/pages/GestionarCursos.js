@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { cursoService } from '../services/api';
+import { cursoService, unwrapList } from '../services/api';
 import './GestionarCursos.css';
 
 const GestionarCursos = () => {
@@ -21,7 +21,7 @@ const GestionarCursos = () => {
     try {
       setLoading(true);
       const response = await cursoService.getAll();
-      setCursos(response.data.results || response.data);
+      setCursos(unwrapList(response));
     } catch (err) {
       console.error('Error al cargar cursos:', err);
       alert('Error al cargar cursos');

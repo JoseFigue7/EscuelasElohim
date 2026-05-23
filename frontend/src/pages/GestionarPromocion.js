@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { temaService, inscripcionService, usuarioService, promedioService, diplomaService, promocionService } from '../services/api';
+import { temaService, inscripcionService, usuarioService, promedioService, diplomaService, promocionService, unwrapList } from '../services/api';
 import PreguntasSection from '../components/PreguntasSection';
 import ExamenesSection from '../components/ExamenesSection';
 import './GestionarPromocion.css';
@@ -68,11 +68,11 @@ const GestionarPromocion = () => {
         usuarioService.getAll('admin'),
       ]);
       setPromocion(promocionResponse.data);
-      setTemas(temasResponse.data.results || temasResponse.data);
-      setInscripciones(inscripcionesData);
-      setAlumnos(alumnosData);
+      setTemas(unwrapList(temasResponse));
+      setInscripciones(unwrapList(inscripcionesData));
+      setAlumnos(unwrapList(alumnosData));
       const docentesMap = new Map();
-      [...docentesData, ...adminsData].forEach((u) => docentesMap.set(u.id, u));
+      [...unwrapList(docentesData), ...unwrapList(adminsData)].forEach((u) => docentesMap.set(u.id, u));
       setDocentesAsignables(Array.from(docentesMap.values()));
     } catch (err) {
       console.error('Error al cargar datos:', err);
@@ -219,7 +219,7 @@ const GestionarPromocion = () => {
   const loadDiplomas = useCallback(async () => {
     try {
       const response = await diplomaService.getAll(id);
-      const data = response.data.results || response.data;
+      const data = unwrapList(response);
       setDiplomas(data);
       return data;
     } catch (err) {
@@ -349,7 +349,7 @@ const GestionarPromocion = () => {
     }
     try {
       const response = await promedioService.getAll(id);
-      setPromedios(response.data.results || response.data);
+      setPromedios(unwrapList(response));
     } catch (err) {
       console.error('Error al cargar promedios:', err);
       setPromedios([]);

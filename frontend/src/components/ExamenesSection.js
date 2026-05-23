@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { examenService } from '../services/api';
+import { examenService, unwrapList } from '../services/api';
 
 const ExamenesSection = ({ temas, onRefresh }) => {
   const [examenes, setExamenes] = useState({});
@@ -25,7 +25,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
       nuevosLoading[tema.id] = true;
       try {
         const response = await examenService.getAll(tema.id);
-        const examenesTema = response.data.results || response.data;
+        const examenesTema = unwrapList(response);
         nuevosExamenes[tema.id] = examenesTema.length > 0 ? examenesTema[0] : null;
       } catch (err) {
         console.error(`Error al cargar examen del tema ${tema.id}:`, err);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { promocionService } from '../services/api';
+import { promocionService, unwrapList } from '../services/api';
 import './Dashboard.css';
 
 const AlumnoDashboard = () => {
@@ -16,7 +16,7 @@ const AlumnoDashboard = () => {
     try {
       setLoading(true);
       const response = await promocionService.getAll();
-      setPromociones(response.data.results || response.data);
+      setPromociones(unwrapList(response));
       setError('');
     } catch (err) {
       setError('Error al cargar las promociones');

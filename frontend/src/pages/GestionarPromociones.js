@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { promocionService, cursoService } from '../services/api';
+import { promocionService, cursoService, unwrapList } from '../services/api';
 import './GestionarPromociones.css';
 
 const GestionarPromociones = () => {
@@ -30,8 +30,8 @@ const GestionarPromociones = () => {
         promocionService.getAll(),
         cursoService.getAll(),
       ]);
-      setPromociones(promocionesResponse.data.results || promocionesResponse.data);
-      setCursos(cursosResponse.data.results || cursosResponse.data);
+      setPromociones(unwrapList(promocionesResponse));
+      setCursos(unwrapList(cursosResponse));
     } catch (err) {
       console.error('Error al cargar promociones:', err);
       alert('Error al cargar promociones');

@@ -66,7 +66,11 @@ export async function fetchAllPaginated(requestPage, pageSize = 100) {
 
   while (hasMore) {
     const response = await requestPage(page, pageSize);
-    const data = response.data;
+    const data = response?.data;
+
+    if (!data) {
+      break;
+    }
 
     if (Array.isArray(data)) {
       return data;
@@ -185,11 +189,17 @@ export const materialService = {
   download: (id) => api.get(`/materiales/${id}/?download=true`, { responseType: 'blob' }),
 };
 
+/** Envuelve un listado paginado en forma compatible con axios ({ data: [...] }). */
+async function paginatedList(requestPage, pageSize = 100) {
+  const results = await fetchAllPaginated(requestPage, pageSize);
+  return { data: results };
+}
+
 // Servicio de Inscripciones
 export const inscripcionService = {
-  getAll: async (promocionId) => {
+  getAll: (promocionId) => {
     const params = promocionId ? { promocion: promocionId } : {};
-    return fetchAllPaginated((page, pageSize) =>
+    return paginatedList((page, pageSize) =>
       api.get('/inscripciones/', { params: { ...params, page, page_size: pageSize } })
     );
   },
@@ -233,11 +243,11 @@ export const examenService = {
 
 // Servicio de Recuperaciones
 export const recuperacionService = {
-  getAll: async (examenId, inscripcionId) => {
+  getAll: (examenId, inscripcionId) => {
     const params = {};
     if (examenId) params.examen = examenId;
     if (inscripcionId) params.inscripcion = inscripcionId;
-    return fetchAllPaginated((page, pageSize) =>
+    return paginatedList((page, pageSize) =>
       api.get('/recuperaciones/', { params: { ...params, page, page_size: pageSize } })
     );
   },
@@ -251,9 +261,9 @@ export const recuperacionService = {
 
 // Servicio de Calificaciones
 export const calificacionService = {
-  getAll: async (examenId) => {
+  getAll: (examenId) => {
     const params = examenId ? { examen: examenId } : {};
-    return fetchAllPaginated((page, pageSize) =>
+    return paginatedList((page, pageSize) =>
       api.get('/calificaciones/', { params: { ...params, page, page_size: pageSize } })
     );
   },
@@ -288,11 +298,11 @@ export const diplomaService = {
 
 // Servicio de Usuarios (Admin)
 export const usuarioService = {
-  getAll: async (tipo, buscar) => {
+  getAll: (tipo, buscar) => {
     const params = {};
     if (tipo) params.tipo = tipo;
     if (buscar) params.buscar = buscar;
-    return fetchAllPaginated((page, pageSize) =>
+    return paginatedList((page, pageSize) =>
       api.get('/auth/usuarios/', { params: { ...params, page, page_size: pageSize } })
     );
   },

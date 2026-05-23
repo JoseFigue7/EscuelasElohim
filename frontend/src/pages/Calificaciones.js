@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { calificacionService } from '../services/api';
+import { calificacionService, unwrapList } from '../services/api';
 import './Calificaciones.css';
 
 const Calificaciones = () => {
@@ -14,7 +14,7 @@ const Calificaciones = () => {
     try {
       setLoading(true);
       const response = await calificacionService.getAll(examenId);
-      setCalificaciones(response.data.results || response.data);
+      setCalificaciones(unwrapList(response));
       setError('');
     } catch (err) {
       setError('Error al cargar las calificaciones');

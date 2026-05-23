@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { preguntaService } from '../services/api';
+import { preguntaService, unwrapList } from '../services/api';
 
 const PreguntasSection = ({ temas, onRefresh }) => {
   const [selectedTema, setSelectedTema] = useState(null);
@@ -23,7 +23,7 @@ const PreguntasSection = ({ temas, onRefresh }) => {
     try {
       setLoading(true);
       const response = await preguntaService.getAll(selectedTema.id);
-      setPreguntas(response.data.results || response.data);
+      setPreguntas(unwrapList(response));
     } catch (err) {
       console.error('Error al cargar preguntas:', err);
       alert('Error al cargar preguntas');
