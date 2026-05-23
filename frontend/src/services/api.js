@@ -80,6 +80,14 @@ export async function fetchAllPaginated(requestPage, pageSize = 100) {
   return results;
 }
 
+/** Normaliza respuestas paginadas o arrays planos del API. */
+export function unwrapList(response) {
+  if (Array.isArray(response)) return response;
+  const data = response?.data ?? response;
+  if (Array.isArray(data)) return data;
+  return data?.results ?? [];
+}
+
 // Servicio de Autenticación
 export const authService = {
   login: async (username, password) => {
@@ -225,11 +233,13 @@ export const examenService = {
 
 // Servicio de Recuperaciones
 export const recuperacionService = {
-  getAll: (examenId, inscripcionId) => {
+  getAll: async (examenId, inscripcionId) => {
     const params = {};
     if (examenId) params.examen = examenId;
     if (inscripcionId) params.inscripcion = inscripcionId;
-    return api.get('/recuperaciones/', { params });
+    return fetchAllPaginated((page, pageSize) =>
+      api.get('/recuperaciones/', { params: { ...params, page, page_size: pageSize } })
+    );
   },
   getById: (id) => api.get(`/recuperaciones/${id}/`),
   create: (data) => api.post('/recuperaciones/', data),
@@ -241,8 +251,12 @@ export const recuperacionService = {
 
 // Servicio de Calificaciones
 export const calificacionService = {
-  getAll: (examenId) => 
-    api.get('/calificaciones/', { params: examenId ? { examen: examenId } : {} }),
+  getAll: async (examenId) => {
+    const params = examenId ? { examen: examenId } : {};
+    return fetchAllPaginated((page, pageSize) =>
+      api.get('/calificaciones/', { params: { ...params, page, page_size: pageSize } })
+    );
+  },
   getById: (id) => api.get(`/calificaciones/${id}/`),
 };
 

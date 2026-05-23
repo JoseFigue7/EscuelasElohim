@@ -721,3 +721,17 @@
   }
 }
 
+.examen-config-hint {
+  margin-top: 12px;
+  color: var(--text-muted, #666);
+  font-size: 0.95rem;
+}
+
+.estudiantes-estado-section {
+  margin-top: 24px;
+}
+
+.estudiantes-estado-section h3 {
+  margin-bottom: 12px;
+}
+

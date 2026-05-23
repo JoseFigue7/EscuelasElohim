@@ -1112,3 +1112,26 @@
   color: var(--text-secondary);
   font-size: 14px;
 }
+
+.promocion-docentes {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.docentes-asignados-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--border-color-light, #e5e7eb);
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.docente-asignado-item {
+  margin: 0;
+}

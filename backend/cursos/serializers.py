@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from .models import (
     Curso, Promocion, Tema, Material, Inscripcion, 
@@ -16,6 +17,12 @@ class CursoSerializer(serializers.ModelSerializer):
 class PromocionSerializer(serializers.ModelSerializer):
     curso_nombre = serializers.CharField(source='curso.nombre', read_only=True)
     docente_nombre = serializers.SerializerMethodField()
+    docentes_nombres = serializers.SerializerMethodField()
+    docentes = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=get_user_model().objects.filter(tipo__in=['docente', 'admin']),
+        required=False,
+    )
     
     class Meta:
         model = Promocion
@@ -25,6 +32,34 @@ class PromocionSerializer(serializers.ModelSerializer):
         if obj.docente:
             return f"{obj.docente.get_full_name() or obj.docente.username}"
         return None
+
+    def get_docentes_nombres(self, obj):
+        return [
+            f"{docente.get_full_name() or docente.username}"
+            for docente in obj.docentes.all()
+        ]
+
+    def create(self, validated_data):
+        docentes = validated_data.pop('docentes', [])
+        promocion = super().create(validated_data)
+        if docentes:
+            promocion.docentes.set(docentes)
+            if not promocion.docente:
+                promocion.docente = docentes[0]
+                promocion.save(update_fields=['docente'])
+        elif promocion.docente:
+            promocion.docentes.add(promocion.docente)
+        return promocion
+
+    def update(self, instance, validated_data):
+        docentes = validated_data.pop('docentes', None)
+        promocion = super().update(instance, validated_data)
+        if docentes is not None:
+            promocion.docentes.set(docentes)
+            if docentes and not promocion.docente:
+                promocion.docente = docentes[0]
+                promocion.save(update_fields=['docente'])
+        return promocion
 
 
 class MaterialSerializer(serializers.ModelSerializer):
@@ -127,6 +162,7 @@ class TemaListSerializer(serializers.ModelSerializer):
 
 class InscripcionSerializer(serializers.ModelSerializer):
     alumno_nombre = serializers.SerializerMethodField()
+    alumno_activo = serializers.SerializerMethodField()
     promocion_nombre = serializers.CharField(source='promocion.nombre', read_only=True)
     curso_nombre = serializers.CharField(source='promocion.curso.nombre', read_only=True)
     
@@ -137,6 +173,9 @@ class InscripcionSerializer(serializers.ModelSerializer):
     
     def get_alumno_nombre(self, obj):
         return f"{obj.alumno.get_full_name() or obj.alumno.username}"
+
+    def get_alumno_activo(self, obj):
+        return bool(obj.alumno.activo)
 
 
 class AsistenciaSerializer(serializers.ModelSerializer):

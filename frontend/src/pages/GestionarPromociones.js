@@ -271,10 +271,14 @@ const GestionarPromociones = () => {
                     <span>{new Date(promocion.fecha_fin).toLocaleDateString()}</span>
                   </p>
                 )}
-                {promocion.docente_nombre && (
+                {(promocion.docentes_nombres?.length > 0 || promocion.docente_nombre) && (
                   <p className="info-item">
-                    <span className="label">Docente:</span>
-                    <span>{promocion.docente_nombre}</span>
+                    <span className="label">Docentes:</span>
+                    <span>
+                      {promocion.docentes_nombres?.length > 0
+                        ? promocion.docentes_nombres.join(', ')
+                        : promocion.docente_nombre}
+                    </span>
                   </p>
                 )}
                 <p className="info-item">

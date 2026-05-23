@@ -32,7 +32,7 @@ class CursoViewSet(viewsets.ModelViewSet):
 
 
 class PromocionViewSet(viewsets.ModelViewSet):
-    queryset = Promocion.objects.select_related('curso', 'docente').all()
+    queryset = Promocion.objects.select_related('curso', 'docente').prefetch_related('docentes').all()
     serializer_class = PromocionSerializer
     permission_classes = [IsAuthenticated]
     
@@ -47,9 +47,11 @@ class PromocionViewSet(viewsets.ModelViewSet):
             ).values_list('promocion_id', flat=True)
             queryset = queryset.filter(id__in=inscripciones, activa=True)
         
-        # Docentes ven sus propias promociones
-        elif user.es_docente and not user.is_superuser:
-            queryset = queryset.filter(docente=user)
+        # Docentes ven promociones asignadas; administradores ven todas
+        elif user.tipo == 'docente':
+            queryset = queryset.filter(
+                Q(docente=user) | Q(docentes=user)
+            ).distinct()
         
         return queryset
     
@@ -57,7 +59,9 @@ class PromocionViewSet(viewsets.ModelViewSet):
         """Asignar automáticamente el docente al usuario actual si es docente o admin"""
         user = self.request.user
         if user.es_docente or user.is_superuser:
-            serializer.save(docente=user)
+            promocion = serializer.save(docente=user)
+            if not promocion.docentes.filter(pk=user.pk).exists():
+                promocion.docentes.add(user)
         else:
             serializer.save()
 

@@ -27,7 +27,9 @@ const GestionarPromocion = () => {
     fecha_inicio: '',
     fecha_fin: '',
     activa: true,
+    docentes: [],
   });
+  const [docentesAsignables, setDocentesAsignables] = useState([]);
   const [newTema, setNewTema] = useState({
     titulo: '',
     descripcion: '',
@@ -57,16 +59,21 @@ const GestionarPromocion = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [promocionResponse, temasResponse, inscripcionesData, alumnosData] = await Promise.all([
+      const [promocionResponse, temasResponse, inscripcionesData, alumnosData, docentesData, adminsData] = await Promise.all([
         promocionService.getById(id),
         temaService.getAll(id),
         inscripcionService.getAll(id),
         usuarioService.getAll('alumno'),
+        usuarioService.getAll('docente'),
+        usuarioService.getAll('admin'),
       ]);
       setPromocion(promocionResponse.data);
       setTemas(temasResponse.data.results || temasResponse.data);
       setInscripciones(inscripcionesData);
       setAlumnos(alumnosData);
+      const docentesMap = new Map();
+      [...docentesData, ...adminsData].forEach((u) => docentesMap.set(u.id, u));
+      setDocentesAsignables(Array.from(docentesMap.values()));
     } catch (err) {
       console.error('Error al cargar datos:', err);
     } finally {
@@ -371,15 +378,28 @@ const GestionarPromocion = () => {
 
   const handleEditPromocion = () => {
     if (promocion) {
+      const docentesIds = (promocion.docentes && promocion.docentes.length > 0)
+        ? promocion.docentes
+        : (promocion.docente ? [promocion.docente] : []);
       setEditPromocion({
         nombre: promocion.nombre || '',
         descripcion: promocion.descripcion || '',
         fecha_inicio: promocion.fecha_inicio ? promocion.fecha_inicio.split('T')[0] : '',
         fecha_fin: promocion.fecha_fin ? promocion.fecha_fin.split('T')[0] : '',
         activa: promocion.activa !== undefined ? promocion.activa : true,
+        docentes: docentesIds,
       });
       setShowEditPromocion(true);
     }
+  };
+
+  const toggleDocenteAsignado = (docenteId) => {
+    setEditPromocion((prev) => {
+      const docentes = prev.docentes.includes(docenteId)
+        ? prev.docentes.filter((id) => id !== docenteId)
+        : [...prev.docentes, docenteId];
+      return { ...prev, docentes };
+    });
   };
 
   const handleUpdatePromocion = async (e) => {
@@ -507,6 +527,11 @@ const GestionarPromocion = () => {
                   })}</>
                 )}
               </span>
+              {promocion.docentes_nombres?.length > 0 && (
+                <span className="promocion-docentes">
+                  👨‍🏫 Docentes: {promocion.docentes_nombres.join(', ')}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -568,6 +593,31 @@ const GestionarPromocion = () => {
                   onChange={(e) => setEditPromocion({ ...editPromocion, fecha_fin: e.target.value })}
                 />
                 <small>Puedes dejarlo vacío si aún no está definida</small>
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Docentes asignados</label>
+              <div className="docentes-asignados-list">
+                {docentesAsignables.length === 0 ? (
+                  <p className="form-hint">No hay docentes o administradores disponibles.</p>
+                ) : (
+                  docentesAsignables.map((docente) => (
+                    <label key={docente.id} className="checkbox-label docente-asignado-item">
+                      <input
+                        type="checkbox"
+                        checked={editPromocion.docentes.includes(docente.id)}
+                        onChange={() => toggleDocenteAsignado(docente.id)}
+                      />
+                      <span>
+                        {docente.first_name || docente.last_name
+                          ? `${docente.first_name || ''} ${docente.last_name || ''}`.trim()
+                          : docente.username}
+                        {' '}
+                        <small>({docente.tipo === 'admin' ? 'Admin' : 'Docente'})</small>
+                      </span>
+                    </label>
+                  ))
+                )}
               </div>
             </div>
             <div className="form-actions">

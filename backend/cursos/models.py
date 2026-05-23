@@ -32,8 +32,15 @@ class Promocion(models.Model):
         settings.AUTH_USER_MODEL, 
         on_delete=models.SET_NULL, 
         null=True,
+        blank=True,
         related_name='promociones_dictadas',
         limit_choices_to={'tipo__in': ['docente', 'admin']}
+    )
+    docentes = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='promociones_asignadas',
+        blank=True,
+        limit_choices_to={'tipo__in': ['docente', 'admin']},
     )
     activa = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -190,6 +197,16 @@ class Examen(models.Model):
     tiempo_limite = models.PositiveIntegerField(help_text='Tiempo en minutos', blank=True, null=True)
     fecha_inicio = models.DateTimeField(help_text='Fecha y hora de inicio del examen', blank=True, null=True)
     fecha_fin = models.DateTimeField(help_text='Fecha y hora de fin del examen', blank=True, null=True)
+    porcentaje_aprobacion = models.PositiveIntegerField(
+        default=70,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text='Porcentaje mínimo para aprobar el examen',
+    )
+    permitir_recuperacion = models.BooleanField(default=True)
+    recuperacion_incluye_no_realizados = models.BooleanField(
+        default=False,
+        help_text='Permite recuperación también para quienes no realizaron el examen',
+    )
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
@@ -327,8 +344,8 @@ class CalificacionExamen(models.Model):
     
     @property
     def aprobado(self):
-        """Retorna True si la calificación es >= 80%"""
-        return float(self.porcentaje) >= 80.0
+        umbral = getattr(self.examen, 'porcentaje_aprobacion', 70) or 70
+        return float(self.porcentaje) >= float(umbral)
 
 
 class PromedioPromocion(models.Model):

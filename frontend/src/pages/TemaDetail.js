@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { temaService, materialService, examenService, calificacionService, inscripcionService, promocionService, recuperacionService } from '../services/api';
+import { temaService, materialService, examenService, calificacionService, inscripcionService, promocionService, recuperacionService, unwrapList } from '../services/api';
 import MaterialContent from '../components/MaterialContent';
 import './TemaDetail.css';
 
@@ -45,39 +45,37 @@ const TemaDetail = () => {
       setError('');
       
       // Cargar datos en paralelo
-      const [temaResponse, promocionResponse, materialesResponse, inscripcionesResponse] = await Promise.all([
+      const [temaResponse, promocionResponse, materialesResponse, inscripcionesData] = await Promise.all([
         temaService.getById(temaId),
         promocionService.getById(promocionId),
         materialService.getAll(temaId),
         inscripcionService.getAll(promocionId),
       ]);
 
-      const inscripcionesData = inscripcionesResponse.data.results || inscripcionesResponse.data;
-      
       setTema(temaResponse.data);
       setEditTemaForm({
         titulo: temaResponse.data.titulo || '',
         descripcion: temaResponse.data.descripcion || '',
         fecha_clase: temaResponse.data.fecha_clase || '',
       });
-      setPromocion(promocionResponse);
-      setMateriales(materialesResponse.data.results || materialesResponse.data);
+      setPromocion(promocionResponse.data);
+      setMateriales(unwrapList(materialesResponse));
       setInscripciones(inscripcionesData);
 
       // Cargar examen si existe
       try {
         const examenesResponse = await examenService.getAll(temaId);
-        const examenes = examenesResponse.data.results || examenesResponse.data;
+        const examenes = unwrapList(examenesResponse);
         if (examenes.length > 0) {
           setExamen(examenes[0]);
           
           // Cargar calificaciones del examen
-          const calificacionesResponse = await calificacionService.getAll(examenes[0].id);
-          setCalificaciones(calificacionesResponse.data.results || calificacionesResponse.data);
+          const calificacionesData = await calificacionService.getAll(examenes[0].id);
+          setCalificaciones(calificacionesData);
           
           // Cargar recuperaciones del examen
-          const recuperacionesResponse = await recuperacionService.getAll(examenes[0].id);
-          setRecuperaciones(recuperacionesResponse.data.results || recuperacionesResponse.data);
+          const recuperacionesData = await recuperacionService.getAll(examenes[0].id);
+          setRecuperaciones(recuperacionesData);
           
           // Cargar recuperaciones totales por inscripción
           const totalesMap = {};
@@ -329,15 +327,57 @@ const TemaDetail = () => {
     }
   };
 
-  // Calcular estadísticas
+  // Calcular estadísticas del examen (solo intentos normales, no recuperaciones)
+  const umbralAprobacion = examen?.porcentaje_aprobacion ?? 70;
+  const calificacionesNormales = calificaciones.filter(
+    (c) => !c.es_recuperacion && !c.recuperacion
+  );
+
+  const getInscripcionId = (cal) =>
+    typeof cal.inscripcion === 'object' ? cal.inscripcion.id : cal.inscripcion;
+
+  const calPorInscripcion = new Map();
+  calificacionesNormales.forEach((cal) => {
+    calPorInscripcion.set(String(getInscripcionId(cal)), cal);
+  });
+
+  const esAprobado = (cal) => parseFloat(cal.porcentaje) >= umbralAprobacion;
+
+  const estudiantesEstado = inscripciones.map((ins) => {
+    const cal = calPorInscripcion.get(String(ins.id));
+    if (!cal) {
+      return { inscripcion: ins, estado: 'pendiente', calificacion: null };
+    }
+    if (esAprobado(cal)) {
+      return { inscripcion: ins, estado: 'aprobado', calificacion: cal };
+    }
+    return { inscripcion: ins, estado: 'reprobado', calificacion: cal };
+  });
+
+  const seleccionarParaRecuperacion = () => {
+    const ids = estudiantesEstado
+      .filter((item) => {
+        if (item.estado === 'reprobado') return true;
+        if (item.estado === 'pendiente' && examen?.recuperacion_incluye_no_realizados) {
+          return true;
+        }
+        return false;
+      })
+      .map((item) => item.inscripcion.id);
+    setRecuperacionForm((prev) => ({ ...prev, inscripciones: ids }));
+  };
+
   const estadisticas = {
     totalEstudiantes: inscripciones.length,
-    estudiantesConExamen: calificaciones.length,
-    estudiantesSinExamen: inscripciones.length - calificaciones.length,
-    aprobados: calificaciones.filter(c => c.aprobado).length,
-    reprobados: calificaciones.filter(c => !c.aprobado).length,
-    promedioGeneral: calificaciones.length > 0
-      ? (calificaciones.reduce((sum, c) => sum + parseFloat(c.porcentaje), 0) / calificaciones.length).toFixed(2)
+    estudiantesConExamen: calificacionesNormales.length,
+    estudiantesSinExamen: inscripciones.length - calificacionesNormales.length,
+    aprobados: calificacionesNormales.filter((c) => esAprobado(c)).length,
+    reprobados: calificacionesNormales.filter((c) => !esAprobado(c)).length,
+    promedioGeneral: calificacionesNormales.length > 0
+      ? (
+          calificacionesNormales.reduce((sum, c) => sum + parseFloat(c.porcentaje), 0) /
+          calificacionesNormales.length
+        ).toFixed(2)
       : 0,
   };
 
@@ -498,15 +538,61 @@ const TemaDetail = () => {
             </div>
             <div className="stat-card success">
               <div className="stat-value">{estadisticas.aprobados}</div>
-              <div className="stat-label">Aprobados (≥80%)</div>
+              <div className="stat-label">Aprobados (≥{umbralAprobacion}%)</div>
             </div>
             <div className="stat-card danger">
               <div className="stat-value">{estadisticas.reprobados}</div>
-              <div className="stat-label">Reprobados (&lt;80%)</div>
+              <div className="stat-label">Reprobados (&lt;{umbralAprobacion}%)</div>
             </div>
             <div className="stat-card primary">
               <div className="stat-value">{estadisticas.promedioGeneral}%</div>
               <div className="stat-label">Promedio General</div>
+            </div>
+          </div>
+          <p className="examen-config-hint">
+            Umbral de aprobación: {umbralAprobacion}%
+            {examen.permitir_recuperacion
+              ? ` · Recuperación ${examen.recuperacion_incluye_no_realizados ? 'incluye pendientes' : 'solo reprobados'}`
+              : ' · Recuperación deshabilitada'}
+          </p>
+
+          <div className="estudiantes-estado-section">
+            <h3>Estado por estudiante</h3>
+            <div className="calificaciones-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Estudiante</th>
+                    <th>Estado</th>
+                    <th>Porcentaje</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {estudiantesEstado.map(({ inscripcion, estado, calificacion }) => (
+                    <tr key={inscripcion.id}>
+                      <td><strong>{inscripcion.alumno_nombre}</strong></td>
+                      <td>
+                        <span className={`badge ${
+                          estado === 'aprobado' ? 'success' : estado === 'reprobado' ? 'danger' : 'warning'
+                        }`}>
+                          {estado === 'aprobado' && '✅ Aprobado'}
+                          {estado === 'reprobado' && '❌ Reprobado'}
+                          {estado === 'pendiente' && '⏳ Pendiente'}
+                        </span>
+                      </td>
+                      <td>
+                        {calificacion ? `${calificacion.porcentaje}%` : '—'}
+                      </td>
+                      <td>
+                        {calificacion
+                          ? new Date(calificacion.fecha_completado).toLocaleDateString()
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -679,7 +765,7 @@ const TemaDetail = () => {
             {examen.titulo && <p className="examen-titulo">Examen: {examen.titulo}</p>}
           </div>
 
-          {calificaciones.length > 0 ? (
+          {calificacionesNormales.length > 0 ? (
             <div className="calificaciones-table">
               <table>
                 <thead>
@@ -693,26 +779,29 @@ const TemaDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {calificaciones.map((calificacion) => (
+                  {calificacionesNormales.map((calificacion) => {
+                    const aprobado = esAprobado(calificacion);
+                    return (
                     <tr key={calificacion.id}>
                       <td><strong>{calificacion.alumno_nombre}</strong></td>
                       <td>{calificacion.puntaje_obtenido}</td>
                       <td>{calificacion.puntaje_total}</td>
                       <td>
-                        <span className={`porcentaje ${calificacion.aprobado ? 'aprobado' : 'reprobado'}`}>
+                        <span className={`porcentaje ${aprobado ? 'aprobado' : 'reprobado'}`}>
                           {calificacion.porcentaje}%
                         </span>
                       </td>
                       <td>
-                        <span className={`badge ${calificacion.aprobado ? 'success' : 'danger'}`}>
-                          {calificacion.aprobado ? '✅ Aprobado' : '❌ Reprobado'}
+                        <span className={`badge ${aprobado ? 'success' : 'danger'}`}>
+                          {aprobado ? '✅ Aprobado' : '❌ Reprobado'}
                         </span>
                       </td>
                       <td>
                         {new Date(calificacion.fecha_completado).toLocaleDateString()}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -727,17 +816,11 @@ const TemaDetail = () => {
             <div className="pendientes-section">
               <h3>Estudiantes Pendientes ({estadisticas.estudiantesSinExamen})</h3>
               <div className="pendientes-list">
-                {inscripciones
-                  .filter(ins => {
-                    // Obtener IDs de inscripciones que ya tienen calificación
-                    const inscripcionesConCalificacion = calificaciones.map(cal => 
-                      typeof cal.inscripcion === 'object' ? cal.inscripcion.id : cal.inscripcion
-                    );
-                    return !inscripcionesConCalificacion.includes(ins.id);
-                  })
-                  .map((inscripcion) => (
+                {estudiantesEstado
+                  .filter((item) => item.estado === 'pendiente')
+                  .map(({ inscripcion }) => (
                     <div key={inscripcion.id} className="pendiente-item">
-                      <span>{inscripcion.alumno_nombre || inscripcion.alumno?.first_name || inscripcion.alumno?.username}</span>
+                      <span>{inscripcion.alumno_nombre}</span>
                     </div>
                   ))}
               </div>
@@ -748,15 +831,20 @@ const TemaDetail = () => {
           <div className="recuperaciones-section">
             <div className="section-header" style={{marginTop: '40px', paddingTop: '32px', borderTop: '2px solid var(--border-color-light)'}}>
               <h2>🔄 Recuperaciones</h2>
-              <button 
-                onClick={() => setShowRecuperacionForm(!showRecuperacionForm)} 
-                className="btn-primary"
-              >
-                {showRecuperacionForm ? 'Cancelar' : '+ Nueva Recuperación'}
-              </button>
+              {examen.permitir_recuperacion && (
+                <button
+                  onClick={() => setShowRecuperacionForm(!showRecuperacionForm)}
+                  className="btn-primary"
+                >
+                  {showRecuperacionForm ? 'Cancelar' : '+ Nueva Recuperación'}
+                </button>
+              )}
             </div>
+            {!examen.permitir_recuperacion && (
+              <p className="examen-config-hint">Las recuperaciones están deshabilitadas para este examen.</p>
+            )}
 
-            {showRecuperacionForm && (
+            {showRecuperacionForm && examen.permitir_recuperacion && (
               <form onSubmit={handleCreateRecuperacion} className="material-form" style={{marginTop: '24px'}}>
                 <div className="form-group">
                   <label>Seleccionar Estudiantes *</label>
@@ -772,7 +860,7 @@ const TemaDetail = () => {
                       <p style={{color: '#666', margin: 0}}>No hay estudiantes inscritos</p>
                     ) : (
                       <>
-                        <div style={{marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'center'}}>
+                        <div style={{marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap'}}>
                           <button
                             type="button"
                             onClick={() => {
@@ -791,6 +879,22 @@ const TemaDetail = () => {
                             }}
                           >
                             Seleccionar todos
+                          </button>
+                          <button
+                            type="button"
+                            onClick={seleccionarParaRecuperacion}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '14px',
+                              backgroundColor: '#eff6ff',
+                              border: '1px solid #93c5fd',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {examen.recuperacion_incluye_no_realizados
+                              ? 'Seleccionar reprobados y pendientes'
+                              : 'Seleccionar reprobados'}
                           </button>
                           <button
                             type="button"
