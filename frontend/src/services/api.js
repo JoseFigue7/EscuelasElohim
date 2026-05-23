@@ -258,6 +258,7 @@ export const calificacionService = {
     );
   },
   getById: (id) => api.get(`/calificaciones/${id}/`),
+  getDetalle: (id) => api.get(`/calificaciones/${id}/detalle/`),
 };
 
 // Servicio de Promedios

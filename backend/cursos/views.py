@@ -21,7 +21,7 @@ from .serializers import (
     MaterialSerializer, InscripcionSerializer, AsistenciaSerializer,
     PreguntaSerializer, PreguntaDetailSerializer, ExamenSerializer, ExamenListSerializer,
     RespuestaExamenSerializer, RecuperacionExamenSerializer, RecuperacionExamenBulkCreateSerializer,
-    CalificacionExamenSerializer, PromedioPromocionSerializer, DiplomaSerializer
+    CalificacionExamenSerializer, CalificacionExamenDetalleSerializer, PromedioPromocionSerializer, DiplomaSerializer
 )
 
 
@@ -615,6 +615,21 @@ class CalificacionExamenViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(examen_id=examen_id)
         
         return queryset
+
+    @action(detail=True, methods=['get'])
+    def detalle(self, request, pk=None):
+        """Detalle de calificación con respuestas (docentes/admins o el propio alumno)."""
+        calificacion = self.get_object()
+        user = request.user
+
+        if user.es_alumno and calificacion.inscripcion.alumno_id != user.id:
+            return Response(
+                {'error': 'No tienes permiso para ver este examen'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = CalificacionExamenDetalleSerializer(calificacion)
+        return Response(serializer.data)
 
 
 class PromedioPromocionViewSet(viewsets.ReadOnlyModelViewSet):

@@ -4,6 +4,17 @@ import { temaService, materialService, examenService, calificacionService, inscr
 import MaterialContent from '../components/MaterialContent';
 import './TemaDetail.css';
 
+const formatFechaHora = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('es-GT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const TemaDetail = () => {
   const { promocionId, temaId } = useParams();
   const navigate = useNavigate();
@@ -38,6 +49,8 @@ const TemaDetail = () => {
     fecha_inicio: '',
     fecha_fin: '',
   });
+  const [detalleCalificacion, setDetalleCalificacion] = useState(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -327,6 +340,21 @@ const TemaDetail = () => {
     }
   };
 
+  const verDetalleExamen = async (calificacionId) => {
+    setDetalleLoading(true);
+    try {
+      const response = await calificacionService.getDetalle(calificacionId);
+      setDetalleCalificacion(response.data);
+    } catch (err) {
+      console.error('Error al cargar detalle del examen:', err);
+      alert('No se pudo cargar el detalle del examen');
+    } finally {
+      setDetalleLoading(false);
+    }
+  };
+
+  const cerrarDetalleExamen = () => setDetalleCalificacion(null);
+
   // Calcular estadísticas del examen (solo intentos normales, no recuperaciones)
   const umbralAprobacion = examen?.porcentaje_aprobacion ?? 70;
   const calificacionesNormales = calificaciones.filter(
@@ -549,7 +577,8 @@ const TemaDetail = () => {
                     <th>Estudiante</th>
                     <th>Estado</th>
                     <th>Porcentaje</th>
-                    <th>Fecha</th>
+                    <th>Fecha y hora</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -569,9 +598,18 @@ const TemaDetail = () => {
                         {calificacion ? `${calificacion.porcentaje}%` : '—'}
                       </td>
                       <td>
-                        {calificacion
-                          ? new Date(calificacion.fecha_completado).toLocaleDateString()
-                          : '—'}
+                        {calificacion ? formatFechaHora(calificacion.fecha_completado) : '—'}
+                      </td>
+                      <td>
+                        {calificacion ? (
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm"
+                            onClick={() => verDetalleExamen(calificacion.id)}
+                          >
+                            Ver examen
+                          </button>
+                        ) : '—'}
                       </td>
                     </tr>
                   ))}
@@ -759,7 +797,8 @@ const TemaDetail = () => {
                     <th>Puntaje Total</th>
                     <th>Porcentaje</th>
                     <th>Estado</th>
-                    <th>Fecha</th>
+                    <th>Fecha y hora</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -780,8 +819,15 @@ const TemaDetail = () => {
                           {aprobado ? '✅ Aprobado' : '❌ Reprobado'}
                         </span>
                       </td>
+                      <td>{formatFechaHora(calificacion.fecha_completado)}</td>
                       <td>
-                        {new Date(calificacion.fecha_completado).toLocaleDateString()}
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => verDetalleExamen(calificacion.id)}
+                        >
+                          Ver examen
+                        </button>
                       </td>
                     </tr>
                     );
@@ -887,6 +933,7 @@ const TemaDetail = () => {
                         {inscripciones.map((inscripcion) => {
                           const isSelected = recuperacionForm.inscripciones.includes(inscripcion.id);
                           const tieneRecuperaciones = recuperacionesTotales[inscripcion.id] > 0;
+                          const calEstudiante = calPorInscripcion.get(String(inscripcion.id));
                           return (
                             <label
                               key={inscripcion.id}
@@ -917,6 +964,23 @@ const TemaDetail = () => {
                                 <div style={{fontWeight: '500', color: '#111827'}}>
                                   {inscripcion.alumno_nombre || inscripcion.alumno?.first_name || inscripcion.alumno?.username}
                                 </div>
+                                {calEstudiante && (
+                                  <small style={{ display: 'block', marginTop: '4px' }}>
+                                    Examen: {calEstudiante.porcentaje}% · {formatFechaHora(calEstudiante.fecha_completado)}
+                                    {' · '}
+                                    <button
+                                      type="button"
+                                      className="link-button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        verDetalleExamen(calEstudiante.id);
+                                      }}
+                                    >
+                                      Ver respuestas
+                                    </button>
+                                  </small>
+                                )}
                                 {tieneRecuperaciones && (
                                   <small style={{color: '#dc2626', fontSize: '12px', display: 'block', marginTop: '4px'}}>
                                     ⚠️ Ya tiene {recuperacionesTotales[inscripcion.id]} recuperación{recuperacionesTotales[inscripcion.id] > 1 ? 'es' : ''} en la promoción
@@ -1014,6 +1078,59 @@ const TemaDetail = () => {
           <div className="info-text">
             <strong>ℹ️ Información:</strong> Este tema aún no tiene un examen asignado. 
             Puedes crear uno desde la pestaña "Exámenes" en la gestión de la promoción.
+          </div>
+        </div>
+      )}
+
+      {(detalleCalificacion || detalleLoading) && (
+        <div className="examen-detalle-overlay" onClick={cerrarDetalleExamen}>
+          <div className="examen-detalle-modal" onClick={(e) => e.stopPropagation()}>
+            {detalleLoading ? (
+              <p className="examen-detalle-loading">Cargando examen...</p>
+            ) : (
+              <>
+                <div className="examen-detalle-header">
+                  <div>
+                    <h2>Examen de {detalleCalificacion.alumno_nombre}</h2>
+                    {detalleCalificacion.es_recuperacion && (
+                      <span className="badge warning">Recuperación</span>
+                    )}
+                  </div>
+                  <button type="button" className="btn-close" onClick={cerrarDetalleExamen}>×</button>
+                </div>
+
+                <div className="examen-detalle-resumen">
+                  <span>Puntaje: {detalleCalificacion.puntaje_obtenido} / {detalleCalificacion.puntaje_total}</span>
+                  <span className={`badge ${detalleCalificacion.aprobado ? 'success' : 'danger'}`}>
+                    {detalleCalificacion.porcentaje}% · {detalleCalificacion.aprobado ? 'Aprobado' : 'Reprobado'}
+                  </span>
+                  <span>Realizado: {formatFechaHora(detalleCalificacion.fecha_completado)}</span>
+                </div>
+
+                <div className="examen-detalle-respuestas">
+                  {(detalleCalificacion.respuestas || []).map((respuesta, index) => (
+                    <div
+                      key={respuesta.id}
+                      className={`respuesta-item ${respuesta.es_correcta ? 'correcta' : 'incorrecta'}`}
+                    >
+                      <div className="respuesta-item-header">
+                        <span className="respuesta-numero">Pregunta {index + 1}</span>
+                        <span className={`badge ${respuesta.es_correcta ? 'success' : 'danger'}`}>
+                          {respuesta.es_correcta ? '✓ Correcta' : '✗ Incorrecta'} · {respuesta.puntos_obtenidos} pts
+                        </span>
+                      </div>
+                      <p className="respuesta-pregunta">{respuesta.pregunta_texto}</p>
+                      <div className="respuesta-lineas">
+                        <p><strong>Respondió:</strong> {respuesta.respuesta_dada_texto}</p>
+                        {!respuesta.es_correcta && (
+                          <p className="respuesta-correcta"><strong>Respuesta correcta:</strong> {respuesta.respuesta_correcta_texto}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

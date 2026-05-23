@@ -247,6 +247,51 @@ class RespuestaExamenSerializer(serializers.ModelSerializer):
         read_only_fields = ['es_correcta', 'puntos_obtenidos', 'fecha_respuesta']
 
 
+class RespuestaExamenDetalleSerializer(serializers.ModelSerializer):
+    pregunta_texto = serializers.CharField(source='pregunta.pregunta_texto', read_only=True)
+    tipo_pregunta = serializers.CharField(source='pregunta.tipo_pregunta', read_only=True)
+    respuesta_correcta_texto = serializers.SerializerMethodField()
+    respuesta_dada_texto = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RespuestaExamen
+        fields = [
+            'id',
+            'pregunta',
+            'pregunta_texto',
+            'tipo_pregunta',
+            'respuesta_dada',
+            'respuesta_dada_texto',
+            'respuesta_correcta_texto',
+            'es_correcta',
+            'puntos_obtenidos',
+            'fecha_respuesta',
+        ]
+
+    def _texto_respuesta(self, pregunta, valor):
+        if not valor:
+            return '(sin respuesta)'
+        clave = str(valor).lower().strip()
+        if pregunta.tipo_pregunta == 'opcion_multiple':
+            opciones = {
+                'a': pregunta.opcion_a,
+                'b': pregunta.opcion_b,
+                'c': pregunta.opcion_c,
+                'd': pregunta.opcion_d,
+            }
+            texto = opciones.get(clave)
+            return f"{clave.upper()}) {texto}" if texto else clave.upper()
+        if pregunta.tipo_pregunta == 'verdadero_falso':
+            return 'Verdadero' if clave == 'verdadero' else 'Falso' if clave == 'falso' else valor
+        return valor
+
+    def get_respuesta_correcta_texto(self, obj):
+        return self._texto_respuesta(obj.pregunta, obj.pregunta.respuesta_correcta)
+
+    def get_respuesta_dada_texto(self, obj):
+        return self._texto_respuesta(obj.pregunta, obj.respuesta_dada)
+
+
 class RecuperacionExamenSerializer(serializers.ModelSerializer):
     examen_titulo = serializers.CharField(source='examen.tema.titulo', read_only=True)
     alumno_nombre = serializers.SerializerMethodField()
@@ -347,6 +392,21 @@ class CalificacionExamenSerializer(serializers.ModelSerializer):
         data['aprobado'] = instance.aprobado
         data['es_recuperacion'] = instance.es_recuperacion
         return data
+
+
+class CalificacionExamenDetalleSerializer(CalificacionExamenSerializer):
+    respuestas = serializers.SerializerMethodField()
+
+    class Meta(CalificacionExamenSerializer.Meta):
+        pass
+
+    def get_respuestas(self, obj):
+        respuestas = RespuestaExamen.objects.filter(
+            examen=obj.examen,
+            inscripcion=obj.inscripcion,
+            recuperacion=obj.recuperacion,
+        ).select_related('pregunta').order_by('pregunta_id')
+        return RespuestaExamenDetalleSerializer(respuestas, many=True).data
 
 
 class PromedioPromocionSerializer(serializers.ModelSerializer):

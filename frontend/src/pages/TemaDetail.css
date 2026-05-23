@@ -735,3 +735,131 @@
   margin-bottom: 12px;
 }
 
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+}
+
+.examen-detalle-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.examen-detalle-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: min(900px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.examen-detalle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.examen-detalle-header h2 {
+  margin: 0 0 8px;
+}
+
+.examen-detalle-header .btn-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0 4px;
+}
+
+.examen-detalle-header .btn-close:hover {
+  color: #111827;
+}
+
+.examen-detalle-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.examen-detalle-respuestas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.respuesta-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.respuesta-item.correcta {
+  border-left: 4px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.respuesta-item.incorrecta {
+  border-left: 4px solid #dc2626;
+  background: #fef2f2;
+}
+
+.respuesta-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.respuesta-numero {
+  font-weight: 600;
+  color: #374151;
+}
+
+.respuesta-pregunta {
+  margin: 0 0 10px;
+  color: #111827;
+}
+
+.respuesta-lineas p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.respuesta-correcta {
+  color: #166534;
+}
+
+.examen-detalle-loading {
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+}
+
