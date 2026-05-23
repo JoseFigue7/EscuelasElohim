@@ -769,6 +769,11 @@
   overflow-y: auto;
   padding: 24px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  color: #111827;
+}
+
+.examen-detalle-modal p {
+  color: #111827;
 }
 
 .examen-detalle-header {
@@ -851,10 +856,25 @@
 .respuesta-lineas p {
   margin: 4px 0;
   font-size: 14px;
+  color: #111827;
+}
+
+.respuesta-respondio {
+  font-weight: 600;
+  color: #111827;
+}
+
+.respuesta-item.incorrecta .respuesta-respondio {
+  color: #b91c1c;
+}
+
+.respuesta-item.correcta .respuesta-respondio {
+  color: #047857;
 }
 
 .respuesta-correcta {
   color: #166534;
+  font-weight: 600;
 }
 
 .examen-detalle-loading {

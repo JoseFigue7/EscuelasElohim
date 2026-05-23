@@ -190,7 +190,7 @@ h6 {
 
 p {
   margin: 0;
-  color: white;
+  color: var(--text-primary);
   line-height: 1.7;
 }
 

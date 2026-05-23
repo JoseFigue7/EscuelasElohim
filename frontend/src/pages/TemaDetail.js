@@ -1121,7 +1121,9 @@ const TemaDetail = () => {
                       </div>
                       <p className="respuesta-pregunta">{respuesta.pregunta_texto}</p>
                       <div className="respuesta-lineas">
-                        <p><strong>Respondió:</strong> {respuesta.respuesta_dada_texto}</p>
+                        <p className="respuesta-respondio">
+                          <strong>Respondió:</strong> {respuesta.respuesta_dada_texto}
+                        </p>
                         {!respuesta.es_correcta && (
                           <p className="respuesta-correcta"><strong>Respuesta correcta:</strong> {respuesta.respuesta_correcta_texto}</p>
                         )}
