@@ -866,6 +866,7 @@ const TemaDetail = () => {
                 <h2>🔄 Recuperación (opcional)</h2>
                 <p className="examen-config-hint" style={{ margin: '4px 0 0' }}>
                   Tú decides si haces recuperación, cuándo y para qué estudiantes.
+                  Los alumnos seleccionados verán el examen en <strong>Ver Exámenes</strong> del tema.
                 </p>
               </div>
               <button

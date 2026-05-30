@@ -237,8 +237,15 @@ export const examenService = {
   create: (data) => api.post('/examenes/', data),
   update: (id, data) => api.put(`/examenes/${id}/`, data),
   delete: (id) => api.delete(`/examenes/${id}/`),
-  preguntas: (id) => api.get(`/examenes/${id}/preguntas/`),
-  responder: (id, respuestas) => api.post(`/examenes/${id}/responder/`, { respuestas }),
+  preguntas: (id, recuperacionId) =>
+    api.get(`/examenes/${id}/preguntas/`, {
+      params: recuperacionId ? { recuperacion_id: recuperacionId } : {},
+    }),
+  responder: (id, respuestas, recuperacionId) =>
+    api.post(`/examenes/${id}/responder/`, {
+      respuestas,
+      ...(recuperacionId ? { recuperacion_id: recuperacionId } : {}),
+    }),
 };
 
 // Servicio de Recuperaciones
@@ -257,6 +264,10 @@ export const recuperacionService = {
   delete: (id) => api.delete(`/recuperaciones/${id}/`),
   contarPorInscripcion: (inscripcionId) => 
     api.get('/recuperaciones/contar_por_inscripcion/', { params: { inscripcion_id: inscripcionId } }),
+  getMisDisponibles: (temaId) =>
+    api.get('/recuperaciones/mis-disponibles/', {
+      params: temaId ? { tema: temaId } : {},
+    }),
 };
 
 // Servicio de Calificaciones

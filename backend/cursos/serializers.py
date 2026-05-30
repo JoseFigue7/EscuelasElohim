@@ -311,6 +311,46 @@ class RecuperacionExamenSerializer(serializers.ModelSerializer):
         return data
 
 
+class RecuperacionExamenAlumnoSerializer(serializers.ModelSerializer):
+    """Recuperación visible para el alumno, con datos del examen original."""
+    examen_id = serializers.IntegerField(source='examen.id', read_only=True)
+    examen_titulo = serializers.SerializerMethodField()
+    tema_id = serializers.IntegerField(source='examen.tema.id', read_only=True)
+    tema_titulo = serializers.CharField(source='examen.tema.titulo', read_only=True)
+    curso_nombre = serializers.CharField(source='examen.tema.curso.nombre', read_only=True)
+    numero_preguntas = serializers.IntegerField(source='examen.numero_preguntas', read_only=True)
+    puntos_por_pregunta = serializers.IntegerField(source='examen.puntos_por_pregunta', read_only=True)
+    numero_recuperacion = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = RecuperacionExamen
+        fields = [
+            'id',
+            'examen_id',
+            'examen_titulo',
+            'tema_id',
+            'tema_titulo',
+            'curso_nombre',
+            'fecha_inicio',
+            'fecha_fin',
+            'numero_recuperacion',
+            'numero_preguntas',
+            'puntos_por_pregunta',
+            'completada',
+            'activa',
+        ]
+
+    def get_examen_titulo(self, obj):
+        if obj.examen.titulo:
+            return obj.examen.titulo
+        return f"Examen - {obj.examen.tema.titulo}"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['numero_recuperacion'] = instance.numero_recuperacion
+        return data
+
+
 class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
     """Serializer para crear múltiples recuperaciones a la vez"""
     from .models import Examen, Inscripcion
@@ -347,9 +387,18 @@ class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
         return value
     
     def validate(self, attrs):
-        """Validar que las fechas sean correctas"""
+        """Validar fechas e inscripciones del mismo curso que el examen."""
         if attrs['fecha_inicio'] >= attrs['fecha_fin']:
             raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
+
+        examen = attrs['examen']
+        curso_id = examen.tema.curso_id
+        for inscripcion in attrs['inscripciones']:
+            if inscripcion.promocion.curso_id != curso_id:
+                raise serializers.ValidationError(
+                    "Todos los estudiantes deben estar inscritos en una promoción "
+                    "del mismo curso que el examen."
+                )
         return attrs
     
     def create(self, validated_data):

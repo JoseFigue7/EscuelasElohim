@@ -200,6 +200,45 @@
   color: var(--text-tertiary);
 }
 
+.recuperaciones-alumno-section {
+  margin-bottom: 40px;
+}
+
+.recuperaciones-alumno-section h2 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.section-hint {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  font-size: 15px;
+}
+
+.examen-card--recuperacion {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #fff 100%);
+}
+
+.examen-card--recuperacion::before {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  transform: scaleX(1);
+}
+
+.btn-tomar-recuperacion {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.examen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
 @media (max-width: 768px) {
   .tema-examenes h1 {
     font-size: 2rem;

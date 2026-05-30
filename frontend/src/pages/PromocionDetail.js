@@ -159,7 +159,7 @@ const PromocionDetail = () => {
                 )}
 
                 <Link
-                  to={`/temas/${tema.id}/examenes`}
+                  to={`/temas/${tema.id}/examenes?promocion=${id}`}
                   className="btn-examen"
                 >
                   Ver Exámenes

@@ -20,7 +20,8 @@ from .serializers import (
     CursoSerializer, PromocionSerializer, TemaSerializer, TemaListSerializer,
     MaterialSerializer, InscripcionSerializer, AsistenciaSerializer,
     PreguntaSerializer, PreguntaDetailSerializer, ExamenSerializer, ExamenListSerializer,
-    RespuestaExamenSerializer, RecuperacionExamenSerializer, RecuperacionExamenBulkCreateSerializer,
+    RespuestaExamenSerializer, RecuperacionExamenSerializer, RecuperacionExamenAlumnoSerializer,
+    RecuperacionExamenBulkCreateSerializer,
     CalificacionExamenSerializer, CalificacionExamenDetalleSerializer, PromedioPromocionSerializer, DiplomaSerializer
 )
 
@@ -574,6 +575,44 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('Solo los docentes pueden crear recuperaciones')
         serializer.save()
     
+    @action(detail=False, methods=['get'], url_path='mis-disponibles')
+    def mis_disponibles(self, request):
+        """Recuperaciones activas asignadas al alumno actual."""
+        user = request.user
+        if not user.es_alumno:
+            return Response(
+                {'error': 'Solo los alumnos pueden consultar sus recuperaciones'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        from django.utils import timezone
+        ahora = timezone.now()
+        tema_id = request.query_params.get('tema')
+
+        queryset = RecuperacionExamen.objects.filter(
+            inscripcion__alumno=user,
+            inscripcion__activa=True,
+            activa=True,
+            completada=False,
+            examen__activo=True,
+            examen__tema__visible_para_estudiante=True,
+        ).filter(
+            Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=ahora)
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora)
+        ).select_related(
+            'examen',
+            'examen__tema',
+            'examen__tema__curso',
+            'inscripcion',
+        )
+
+        if tema_id:
+            queryset = queryset.filter(examen__tema_id=tema_id)
+
+        serializer = RecuperacionExamenAlumnoSerializer(queryset, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def contar_por_inscripcion(self, request):
         """Cuenta las recuperaciones totales de una inscripción (para límites)"""
