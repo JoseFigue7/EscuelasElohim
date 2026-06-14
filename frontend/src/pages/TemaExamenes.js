@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { examenService, recuperacionService, unwrapList } from '../services/api';
+import { examenService, recuperacionService, calificacionService, unwrapList } from '../services/api';
 import './TemaExamenes.css';
 
 const TemaExamenes = () => {
@@ -10,6 +10,7 @@ const TemaExamenes = () => {
   const promocionId = searchParams.get('promocion');
   const [examenes, setExamenes] = useState([]);
   const [recuperaciones, setRecuperaciones] = useState([]);
+  const [calificaciones, setCalificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -17,19 +18,22 @@ const TemaExamenes = () => {
     try {
       setLoading(true);
       setError('');
-      const [examenesResponse, recuperacionesResponse] = await Promise.all([
+      const [examenesResponse, recuperacionesResponse, calificacionesResponse] = await Promise.all([
         examenService.getAll(id),
         recuperacionService.getMisDisponibles(id),
+        calificacionService.getAll(),
       ]);
 
       setExamenes(unwrapList(examenesResponse));
       setRecuperaciones(recuperacionesResponse.data || []);
+      setCalificaciones(unwrapList(calificacionesResponse));
     } catch (err) {
       const errorMessage =
         err.response?.data?.error || err.response?.data?.message || 'Error al cargar los exámenes';
       setError(errorMessage);
       setExamenes([]);
       setRecuperaciones([]);
+      setCalificaciones([]);
       console.error('Error al cargar exámenes:', err);
     } finally {
       setLoading(false);
@@ -55,6 +59,12 @@ const TemaExamenes = () => {
     if (recuperacionId) params.set('recuperacion', recuperacionId);
     const query = params.toString();
     return `/examenes/${examenId}${query ? `?${query}` : ''}`;
+  };
+
+  const getCalificacionRevisable = (examenId) => {
+    return calificaciones.find(
+      (cal) => cal.examen === examenId && cal.puede_revisar
+    );
   };
 
   if (loading) {
@@ -118,6 +128,7 @@ const TemaExamenes = () => {
           {Array.isArray(examenes) && examenes.map((examen) => {
             if (!examen || !examen.id) return null;
             const disponible = isExamenDisponible(examen);
+            const calificacionRevisable = getCalificacionRevisable(examen.id);
             return (
               <div key={examen.id} className={`examen-card ${!disponible ? 'disabled' : ''}`}>
                 <h3>{examen.titulo || 'Sin título'}</h3>
@@ -141,6 +152,13 @@ const TemaExamenes = () => {
                     className="btn-tomar-examen"
                   >
                     Tomar Examen
+                  </Link>
+                ) : calificacionRevisable ? (
+                  <Link
+                    to={`/calificaciones/${calificacionRevisable.id}/revisar`}
+                    className="btn-revisar-examen-tema"
+                  >
+                    Ver respuestas incorrectas
                   </Link>
                 ) : (
                   <div className="examen-no-disponible">

@@ -239,6 +239,16 @@ class Examen(models.Model):
         # Seleccionar preguntas aleatorias
         return preguntas_disponibles.order_by('?')[:cantidad_a_seleccionar]
 
+    def esta_cerrado(self):
+        """Retorna True si el examen ya no está disponible para responder."""
+        from django.utils import timezone
+        ahora = timezone.now()
+        if self.fecha_fin and ahora > self.fecha_fin:
+            return True
+        if not self.activo:
+            return True
+        return False
+
 
 class RespuestaExamen(models.Model):
     """Modelo para las respuestas de los alumnos a los exámenes"""
@@ -346,6 +356,16 @@ class CalificacionExamen(models.Model):
     def aprobado(self):
         umbral = getattr(self.examen, 'porcentaje_aprobacion', 70) or 70
         return float(self.porcentaje) >= float(umbral)
+
+    def puede_revisar_respuestas(self):
+        """Permite revisar respuestas incorrectas solo cuando el intento ya cerró."""
+        if self.recuperacion:
+            from django.utils import timezone
+            ahora = timezone.now()
+            if self.recuperacion.fecha_fin and ahora > self.recuperacion.fecha_fin:
+                return True
+            return False
+        return self.examen.esta_cerrado()
 
 
 class PromedioPromocion(models.Model):

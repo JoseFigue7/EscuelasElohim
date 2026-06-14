@@ -9,7 +9,7 @@ from rest_framework import generics, permissions, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
-
+from rest_framework.views import APIView
 from .models import Usuario
 from .serializers import UsuarioSerializer, UsuarioCreateSerializer
 
@@ -56,6 +56,48 @@ def mapear_encabezados(encabezados):
                 campo_por_columna[indice] = campo
                 break
     return campo_por_columna
+
+
+MENSAJE_RESTABLECIMIENTO_EXITOSO = (
+    'Si el usuario existe y está activo, la contraseña fue restablecida correctamente.'
+)
+
+
+class RestablecerContrasenaView(APIView):
+    """Restablecer contraseña sin autenticación (usuario + nueva contraseña)."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        username = (request.data.get('username') or '').strip()
+        password_nueva = request.data.get('password_nueva') or ''
+        password_nueva_confirm = request.data.get('password_nueva_confirm') or ''
+
+        if not username or not password_nueva or not password_nueva_confirm:
+            return Response(
+                {'error': 'Todos los campos son requeridos'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if password_nueva != password_nueva_confirm:
+            return Response(
+                {'error': 'Las contraseñas no coinciden'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = Usuario.objects.get(
+                username__iexact=username,
+                activo=True,
+                is_active=True,
+            )
+        except Usuario.DoesNotExist:
+            return Response({'mensaje': MENSAJE_RESTABLECIMIENTO_EXITOSO})
+
+        user.set_password(password_nueva)
+        user.debe_cambiar_password = False
+        user.save()
+
+        return Response({'mensaje': MENSAJE_RESTABLECIMIENTO_EXITOSO})
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):

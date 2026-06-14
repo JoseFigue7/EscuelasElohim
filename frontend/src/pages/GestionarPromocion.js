@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { temaService, inscripcionService, usuarioService, promedioService, diplomaService, promocionService, unwrapList } from '../services/api';
+import {
+  API_URL,
+  temaService,
+  inscripcionService,
+  usuarioService,
+  promedioService,
+  diplomaService,
+  promocionService,
+  unwrapList,
+} from '../services/api';
 import PreguntasSection from '../components/PreguntasSection';
 import ExamenesSection from '../components/ExamenesSection';
 import './GestionarPromocion.css';
@@ -45,8 +54,7 @@ const GestionarPromocion = () => {
     if (archivo.startsWith('http://') || archivo.startsWith('https://')) {
       return archivo;
     }
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-    const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+    const baseUrl = API_URL.replace(/\/api\/?$/, '');
     return `${baseUrl}${archivo.startsWith('/') ? '' : '/'}${archivo}`;
   };
 

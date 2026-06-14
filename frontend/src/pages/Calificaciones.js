@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { calificacionService, unwrapList } from '../services/api';
 import './Calificaciones.css';
 
@@ -93,6 +93,20 @@ const Calificaciones = () => {
                   </span>
                 </div>
               </div>
+              {calificacion.puede_revisar && (
+                <Link
+                  to={`/calificaciones/${calificacion.id}/revisar`}
+                  className="btn-revisar-examen"
+                >
+                  Ver respuestas incorrectas
+                </Link>
+              )}
+              {!calificacion.puede_revisar && calificacion.examen_fecha_fin && (
+                <p className="revisar-pendiente">
+                  Podrás revisar tus respuestas incorrectas después del{' '}
+                  {new Date(calificacion.examen_fecha_fin).toLocaleString()}
+                </p>
+              )}
             </div>
           ))}
         </div>

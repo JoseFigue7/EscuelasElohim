@@ -22,7 +22,8 @@ from .serializers import (
     PreguntaSerializer, PreguntaDetailSerializer, ExamenSerializer, ExamenListSerializer,
     RespuestaExamenSerializer, RecuperacionExamenSerializer, RecuperacionExamenAlumnoSerializer,
     RecuperacionExamenBulkCreateSerializer,
-    CalificacionExamenSerializer, CalificacionExamenDetalleSerializer, PromedioPromocionSerializer, DiplomaSerializer
+    CalificacionExamenSerializer, CalificacionExamenDetalleSerializer, PromedioPromocionSerializer, DiplomaSerializer,
+    RespuestaRevisionSerializer
 )
 
 
@@ -636,7 +637,10 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
 
 
 class CalificacionExamenViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = CalificacionExamen.objects.select_related('examen', 'inscripcion', 'inscripcion__alumno').all()
+    queryset = CalificacionExamen.objects.select_related(
+        'examen', 'examen__tema', 'inscripcion', 'inscripcion__alumno',
+        'inscripcion__promocion', 'recuperacion'
+    ).all()
     serializer_class = CalificacionExamenSerializer
     permission_classes = [IsAuthenticated]
     
@@ -669,6 +673,48 @@ class CalificacionExamenViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = CalificacionExamenDetalleSerializer(calificacion)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def revisar(self, request, pk=None):
+        """Muestra las respuestas incorrectas del alumno una vez cerrado el examen."""
+        calificacion = self.get_object()
+        user = request.user
+
+        if user.es_alumno and calificacion.inscripcion.alumno_id != user.id:
+            return Response(
+                {'error': 'No tienes permiso para revisar esta calificación'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not calificacion.puede_revisar_respuestas():
+            return Response(
+                {'error': 'Las respuestas estarán disponibles cuando el examen se cierre por completo'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if calificacion.recuperacion:
+            respuestas = RespuestaExamen.objects.filter(
+                examen=calificacion.examen,
+                inscripcion=calificacion.inscripcion,
+                recuperacion=calificacion.recuperacion,
+                es_correcta=False,
+            ).select_related('pregunta')
+        else:
+            respuestas = RespuestaExamen.objects.filter(
+                examen=calificacion.examen,
+                inscripcion=calificacion.inscripcion,
+                recuperacion__isnull=True,
+                es_correcta=False,
+            ).select_related('pregunta')
+
+        serializer = RespuestaRevisionSerializer(respuestas, many=True)
+        return Response({
+            'calificacion_id': calificacion.id,
+            'examen_titulo': calificacion.examen.titulo,
+            'tema_titulo': calificacion.examen.tema.titulo,
+            'total_incorrectas': respuestas.count(),
+            'respuestas_incorrectas': serializer.data,
+        })
 
 
 class PromedioPromocionViewSet(viewsets.ReadOnlyModelViewSet):

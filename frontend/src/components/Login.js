@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CambiarPassword from './CambiarPassword';
 import './Login.css';
@@ -86,6 +86,9 @@ const Login = () => {
           <button type="submit" disabled={loading} className="btn-primary">
             {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
+          <p className="login-forgot-password">
+            <Link to="/restablecer-contrasena">¿Olvidaste tu contraseña?</Link>
+          </p>
         </form>
       </div>
     </div>

@@ -9,6 +9,7 @@ router.register(r'usuarios', views.UsuarioViewSet, basename='usuario')
 urlpatterns = [
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('restablecer-contrasena/', views.RestablecerContrasenaView.as_view(), name='restablecer_contrasena'),
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('', include(router.urls)),
 ]

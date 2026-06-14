@@ -167,6 +167,30 @@
   margin-top: 12px;
 }
 
+.btn-revisar-examen {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 24px;
+  padding: 12px 20px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition-base);
+}
+
+.btn-revisar-examen:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.revisar-pendiente {
+  margin-top: 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
 @media (max-width: 768px) {
   .calificaciones h1 {
     font-size: 2rem;

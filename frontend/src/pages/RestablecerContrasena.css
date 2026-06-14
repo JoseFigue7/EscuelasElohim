@@ -1,0 +1,45 @@
+.restablecer-card {
+  max-width: 520px;
+}
+
+.restablecer-footer {
+  text-align: center;
+  margin-top: 28px;
+  margin-bottom: 0;
+}
+
+.restablecer-footer a {
+  color: var(--primary-color);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.restablecer-footer a:hover {
+  text-decoration: underline;
+}
+
+.restablecer-success {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.success-message {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  padding: 16px 20px;
+  border-radius: var(--radius-xl);
+  border: 2px solid #a7f3d0;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+}
+
+.restablecer-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
