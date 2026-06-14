@@ -539,7 +539,6 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             # Solo docentes/admin pueden crear/editar recuperaciones
-            from rest_framework.permissions import IsAuthenticated
             return [IsAuthenticated()]
         return [IsAuthenticated()]
     

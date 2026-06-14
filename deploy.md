@@ -63,6 +63,17 @@ npm run build
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+### Script automático (recomendado)
+
+En el servidor, después de `git pull`:
+
+```bash
+export REPO=/var/www/elohim/EscuelasElohim
+bash "$REPO/deploy/actualizar.sh"
+```
+
+El script hace migrate, build, reinicia Gunicorn y comprueba que existan la ruta y el API de restablecer contraseña.
+
 ### Verificación después del update
 
 ```bash
@@ -71,14 +82,28 @@ curl -s -o /dev/null -w "%{http_code}\n" https://escuelaselohim.com/
 curl -s -o /dev/null -w "%{http_code}\n" -X POST https://escuelaselohim.com/api/auth/login/ \
   -H "Content-Type: application/json" \
   -d '{"username":"test","password":"test"}'
+
+# Restablecer contraseña: debe ser 200 (no 404)
+curl -s -o /dev/null -w "restablecer API: %{http_code}\n" -X POST \
+  https://escuelaselohim.com/api/auth/restablecer-contrasena/ \
+  -H "Content-Type: application/json" \
+  -d '{"username":"test","password_nueva":"x","password_nueva_confirm":"x"}'
+
+# Build nuevo (debe contener la cadena restablecer-contrasena)
+grep -o 'static/js/main\.[^"]*' /var/www/elohim/EscuelasElohim/frontend/build/index.html
+grep -q restablecer-contrasena /var/www/elohim/EscuelasElohim/frontend/build/static/js/main.*.js \
+  && echo "frontend OK" || echo "frontend DESACTUALIZADO — ejecuta npm run build"
 ```
 
 - La home debe responder `200`.
 - El login con credenciales falsas debe responder `401` o `400`, **no** `502`.
+- **Restablecer contraseña:** el API debe responder `200` (usuario inexistente también devuelve 200). Si responde `404`, el backend no se actualizó.
+- **Frontend:** si `grep restablecer-contrasena` falla, el build es viejo; incógnito no ayuda porque el servidor sirve JS antiguo.
 
 Probar en el navegador:
 
 - App: https://escuelaselohim.com
+- Restablecer: https://escuelaselohim.com/restablecer-contrasena (debe decir «Restablecer Contraseña», no el login)
 - Admin Django: https://escuelaselohim.com/admin/
 
 ---
@@ -237,6 +262,85 @@ ls -la /run/gunicorn/elohimcoban.sock
 | Login bloqueado (mixed content) | Frontend con `http://162.243.93.136/api` | `REACT_APP_API_URL=/api` y `npm run build` |
 | `/admin/` muestra React | Falta `location /admin/` en sitio del dominio | Añadir proxy a Gunicorn (ver arriba) |
 | `npm run build` OOM | Poca RAM en droplet | `NODE_OPTIONS=--max-old-space-size=3072` o build local + `rsync` |
+| Restablecer → login / API 404 | Código no actualizado en servidor o Nginx sirve otro `build/` | Ver sección **Restablecer contraseña no funciona** abajo |
+
+---
+
+## Restablecer contraseña no funciona
+
+Si tras `git pull` y `npm run build` sigues viendo login en `/restablecer-contrasena` o el API responde `404`:
+
+### 1. Diagnóstico (en el servidor)
+
+```bash
+export REPO=/var/www/elohim/EscuelasElohim
+bash "$REPO/deploy/diagnostico.sh"
+```
+
+### 2. Forzar código nuevo (si `git log` no muestra commit `contras`)
+
+```bash
+cd /var/www/elohim/EscuelasElohim
+git fetch origin
+git reset --hard origin/main
+git log -1 --oneline   # debe incluir "contras" o un commit posterior
+grep restablecer backend/usuarios/urls.py frontend/src/App.js
+```
+
+### 3. Rebuild backend + frontend
+
+```bash
+export REPO=/var/www/elohim/EscuelasElohim
+
+cd "$REPO/backend"
+source venv/bin/activate
+export DJANGO_ENV_FILE=/etc/elohimcoban.env
+python manage.py check
+deactivate
+sudo systemctl restart elohimcoban
+
+cd "$REPO/frontend"
+npm ci
+export NODE_OPTIONS="--max-old-space-size=3072"
+npm run build
+
+# Debe decir OK:
+grep -q restablecer-contrasena build/static/js/main.*.js && echo "build OK"
+```
+
+### 4. Comprobar que Nginx sirve ESE build
+
+```bash
+# Ruta que Nginx usa para el dominio
+nginx -T 2>/dev/null | grep -E 'server_name|root ' | grep -A1 escuelaselohim
+
+# JS en disco vs JS que entrega el sitio (deben coincidir)
+grep -oE 'main\.[a-f0-9]+\.js' "$REPO/frontend/build/index.html"
+curl -sL https://escuelaselohim.com/ | grep -oE 'main\.[a-f0-9]+\.js'
+```
+
+Si el hash es distinto (ej. disco `main.94b2f367.js` pero web `main.529df85c.js`), el `root` de Nginx **no apunta** a `$REPO/frontend/build`. Edita `/etc/nginx/sites-available/escuelaselohim.com` y corrige la ruta.
+
+### 5. Alternativa: build en tu PC y subir con rsync
+
+En tu ThinkPad (con el repo actualizado):
+
+```bash
+cd frontend
+npm ci && npm run build
+rsync -avz --delete build/ root@162.243.93.136:/var/www/elohim/EscuelasElohim/frontend/build/
+```
+
+En el servidor:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+grep -q restablecer-contrasena /var/www/elohim/EscuelasElohim/frontend/build/static/js/main.*.js && echo OK
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://escuelaselohim.com/api/auth/restablecer-contrasena/ \
+  -H "Content-Type: application/json" -d '{"username":"x","password_nueva":"a","password_nueva_confirm":"a"}'
+```
+
+El API debe responder **200** (no 404). La página debe mostrar «Restablecer Contraseña».
 
 ---
 
