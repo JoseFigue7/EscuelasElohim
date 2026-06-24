@@ -83,16 +83,23 @@ const TemaDetail = () => {
         const examenes = unwrapList(examenesResponse);
         if (examenes.length > 0) {
           setExamen(examenes[0]);
-          
-          // Cargar calificaciones del examen
-          const calificacionesResponse = await calificacionService.getAll(examenes[0].id);
-          setCalificaciones(unwrapList(calificacionesResponse));
-          
-          // Cargar recuperaciones del examen
-          const recuperacionesResponse = await recuperacionService.getAll(examenes[0].id);
-          setRecuperaciones(unwrapList(recuperacionesResponse));
-          
-          // Cargar recuperaciones totales por inscripción
+
+          try {
+            const calificacionesResponse = await calificacionService.getAll(examenes[0].id);
+            setCalificaciones(unwrapList(calificacionesResponse));
+          } catch (err) {
+            console.error('Error al cargar calificaciones:', err);
+            setCalificaciones([]);
+          }
+
+          try {
+            const recuperacionesResponse = await recuperacionService.getAll(examenes[0].id);
+            setRecuperaciones(unwrapList(recuperacionesResponse));
+          } catch (err) {
+            console.error('Error al cargar recuperaciones:', err);
+            setRecuperaciones([]);
+          }
+
           const totalesMap = {};
           for (const inscripcion of inscripcionesData) {
             try {
@@ -103,9 +110,18 @@ const TemaDetail = () => {
             }
           }
           setRecuperacionesTotales(totalesMap);
+        } else {
+          setExamen(null);
+          setCalificaciones([]);
+          setRecuperaciones([]);
+          setRecuperacionesTotales({});
         }
       } catch (err) {
         console.log('No hay examen para este tema');
+        setExamen(null);
+        setCalificaciones([]);
+        setRecuperaciones([]);
+        setRecuperacionesTotales({});
       }
     } catch (err) {
       console.error('Error al cargar datos:', err);
@@ -295,23 +311,42 @@ const TemaDetail = () => {
       alert('Debe seleccionar al menos un estudiante');
       return;
     }
-    
+
+    const count = recuperacionForm.inscripciones.length;
+
     try {
       await recuperacionService.create({
         examen: examen.id,
-        inscripciones: recuperacionForm.inscripciones, // Enviar array de inscripciones
+        inscripciones: recuperacionForm.inscripciones,
         fecha_inicio: recuperacionForm.fecha_inicio,
         fecha_fin: recuperacionForm.fecha_fin,
         activa: true,
       });
-      
+
       setShowRecuperacionForm(false);
       setRecuperacionForm({ inscripciones: [], fecha_inicio: '', fecha_fin: '' });
-      loadData();
-      const count = recuperacionForm.inscripciones.length;
+      await loadData();
       alert(`${count} recuperación${count > 1 ? 'es' : ''} creada${count > 1 ? 's' : ''} correctamente`);
     } catch (err) {
-      alert('Error al crear recuperación: ' + (err.response?.data?.detail || err.response?.data?.error || err.message));
+      const data = err.response?.data;
+      let msg = err.message;
+      if (typeof data === 'string') {
+        msg = data;
+      } else if (data?.detail) {
+        msg = data.detail;
+      } else if (data?.error) {
+        msg = data.error;
+      } else if (Array.isArray(data)) {
+        msg = data.join(', ');
+      } else if (data && typeof data === 'object') {
+        msg = Object.entries(data)
+          .map(([key, value]) => {
+            const text = Array.isArray(value) ? value.join(' ') : String(value);
+            return key === 'non_field_errors' ? text : text;
+          })
+          .join('\n');
+      }
+      alert('Error al crear recuperación: ' + msg);
     }
   };
   
@@ -357,24 +392,37 @@ const TemaDetail = () => {
 
   const cerrarDetalleExamen = () => setDetalleCalificacion(null);
 
-  // Calcular estadísticas del examen (solo intentos normales, no recuperaciones)
+  // Calcular estadísticas usando la calificación efectiva (original o recuperación aprobada)
   const umbralAprobacion = examen?.porcentaje_aprobacion ?? 70;
-  const calificacionesNormales = calificaciones.filter(
-    (c) => !c.es_recuperacion && !c.recuperacion
-  );
 
   const getInscripcionId = (cal) =>
     typeof cal.inscripcion === 'object' ? cal.inscripcion.id : cal.inscripcion;
 
-  const calPorInscripcion = new Map();
-  calificacionesNormales.forEach((cal) => {
-    calPorInscripcion.set(String(getInscripcionId(cal)), cal);
-  });
-
   const esAprobado = (cal) => parseFloat(cal.porcentaje) >= umbralAprobacion;
 
+  const esCalificacionRecuperacion = (cal) =>
+    Boolean(cal.es_recuperacion || cal.recuperacion);
+
+  const getCalificacionEfectiva = (inscripcionId) => {
+    const cals = calificaciones.filter(
+      (c) => String(getInscripcionId(c)) === String(inscripcionId)
+    );
+    if (cals.length === 0) return null;
+
+    const aprobadas = cals.filter((c) => esAprobado(c));
+    if (aprobadas.length > 0) {
+      return aprobadas.reduce((best, c) =>
+        parseFloat(c.porcentaje) > parseFloat(best.porcentaje) ? c : best
+      );
+    }
+
+    return cals.reduce((latest, c) =>
+      new Date(c.fecha_completado) > new Date(latest.fecha_completado) ? c : latest
+    );
+  };
+
   const estudiantesEstado = inscripciones.map((ins) => {
-    const cal = calPorInscripcion.get(String(ins.id));
+    const cal = getCalificacionEfectiva(ins.id);
     if (!cal) {
       return { inscripcion: ins, estado: 'pendiente', calificacion: null };
     }
@@ -384,16 +432,24 @@ const TemaDetail = () => {
     return { inscripcion: ins, estado: 'reprobado', calificacion: cal };
   });
 
+  const estudiantesElegiblesRecuperacion = estudiantesEstado.filter(
+    (item) => item.estado !== 'aprobado'
+  );
+
+  const calificacionesEfectivas = estudiantesEstado
+    .map((item) => item.calificacion)
+    .filter(Boolean);
+
   const estadisticas = {
     totalEstudiantes: inscripciones.length,
-    estudiantesConExamen: calificacionesNormales.length,
-    estudiantesSinExamen: inscripciones.length - calificacionesNormales.length,
-    aprobados: calificacionesNormales.filter((c) => esAprobado(c)).length,
-    reprobados: calificacionesNormales.filter((c) => !esAprobado(c)).length,
-    promedioGeneral: calificacionesNormales.length > 0
+    estudiantesConExamen: calificacionesEfectivas.length,
+    estudiantesSinExamen: inscripciones.length - calificacionesEfectivas.length,
+    aprobados: estudiantesEstado.filter((item) => item.estado === 'aprobado').length,
+    reprobados: estudiantesEstado.filter((item) => item.estado === 'reprobado').length,
+    promedioGeneral: calificacionesEfectivas.length > 0
       ? (
-          calificacionesNormales.reduce((sum, c) => sum + parseFloat(c.porcentaje), 0) /
-          calificacionesNormales.length
+          calificacionesEfectivas.reduce((sum, c) => sum + parseFloat(c.porcentaje), 0) /
+          calificacionesEfectivas.length
         ).toFixed(2)
       : 0,
   };
@@ -595,6 +651,9 @@ const TemaDetail = () => {
                           {estado === 'reprobado' && '❌ Reprobado'}
                           {estado === 'pendiente' && '⏳ Pendiente'}
                         </span>
+                        {calificacion && esCalificacionRecuperacion(calificacion) && estado === 'aprobado' && (
+                          <span className="badge warning" style={{ marginLeft: '6px' }}>Recuperación</span>
+                        )}
                       </td>
                       <td>
                         {calificacion ? `${calificacion.porcentaje}%` : '—'}
@@ -789,7 +848,7 @@ const TemaDetail = () => {
             {examen.titulo && <p className="examen-titulo">Examen: {examen.titulo}</p>}
           </div>
 
-          {calificacionesNormales.length > 0 ? (
+          {calificacionesEfectivas.length > 0 ? (
             <div className="calificaciones-table">
               <table>
                 <thead>
@@ -804,11 +863,18 @@ const TemaDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {calificacionesNormales.map((calificacion) => {
-                    const aprobado = esAprobado(calificacion);
+                  {estudiantesEstado
+                    .filter((item) => item.calificacion)
+                    .map(({ inscripcion, estado, calificacion }) => {
+                    const aprobado = estado === 'aprobado';
                     return (
-                    <tr key={calificacion.id}>
-                      <td><strong>{calificacion.alumno_nombre}</strong></td>
+                    <tr key={inscripcion.id}>
+                      <td>
+                        <strong>{inscripcion.alumno_nombre}</strong>
+                        {esCalificacionRecuperacion(calificacion) && aprobado && (
+                          <span className="badge warning" style={{ marginLeft: '6px' }}>Recuperación</span>
+                        )}
+                      </td>
                       <td>{calificacion.puntaje_obtenido}</td>
                       <td>{calificacion.puntaje_total}</td>
                       <td>
@@ -865,7 +931,7 @@ const TemaDetail = () => {
               <div>
                 <h2>🔄 Recuperación (opcional)</h2>
                 <p className="examen-config-hint" style={{ margin: '4px 0 0' }}>
-                  Tú decides si haces recuperación, cuándo y para qué estudiantes.
+                  Solo pueden recuperación quienes no aprobaron (ni el examen original ni una recuperación anterior).
                   Los alumnos seleccionados verán el examen en <strong>Ver Exámenes</strong> del tema.
                 </p>
               </div>
@@ -889,8 +955,10 @@ const TemaDetail = () => {
                     overflowY: 'auto',
                     backgroundColor: '#f9fafb'
                   }}>
-                    {inscripciones.length === 0 ? (
-                      <p style={{color: '#666', margin: 0}}>No hay estudiantes inscritos</p>
+                    {estudiantesElegiblesRecuperacion.length === 0 ? (
+                      <p style={{color: '#666', margin: 0}}>
+                        No hay estudiantes elegibles (todos aprobaron o no hay inscritos).
+                      </p>
                     ) : (
                       <>
                         <div style={{marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap'}}>
@@ -899,7 +967,7 @@ const TemaDetail = () => {
                             onClick={() => {
                               setRecuperacionForm(prev => ({
                                 ...prev,
-                                inscripciones: inscripciones.map(insc => insc.id)
+                                inscripciones: estudiantesElegiblesRecuperacion.map(({ inscripcion }) => inscripcion.id)
                               }));
                             }}
                             style={{
@@ -911,7 +979,7 @@ const TemaDetail = () => {
                               cursor: 'pointer'
                             }}
                           >
-                            Seleccionar todos
+                            Seleccionar todos (elegibles)
                           </button>
                           <button
                             type="button"
@@ -933,10 +1001,9 @@ const TemaDetail = () => {
                             {recuperacionForm.inscripciones.length} seleccionado{recuperacionForm.inscripciones.length !== 1 ? 's' : ''}
                           </span>
                         </div>
-                        {inscripciones.map((inscripcion) => {
+                        {estudiantesElegiblesRecuperacion.map(({ inscripcion, estado, calificacion: calEstudiante }) => {
                           const isSelected = recuperacionForm.inscripciones.includes(inscripcion.id);
                           const tieneRecuperaciones = recuperacionesTotales[inscripcion.id] > 0;
-                          const calEstudiante = calPorInscripcion.get(String(inscripcion.id));
                           return (
                             <label
                               key={inscripcion.id}
@@ -966,6 +1033,9 @@ const TemaDetail = () => {
                               <div style={{flex: 1}}>
                                 <div style={{fontWeight: '500', color: '#111827'}}>
                                   {inscripcion.alumno_nombre || inscripcion.alumno?.first_name || inscripcion.alumno?.username}
+                                  <span style={{ marginLeft: '8px', fontSize: '12px', color: estado === 'pendiente' ? '#b45309' : '#dc2626' }}>
+                                    ({estado === 'pendiente' ? 'No realizó el examen' : 'No aprobó'})
+                                  </span>
                                 </div>
                                 {calEstudiante && (
                                   <small style={{ display: 'block', marginTop: '4px' }}>

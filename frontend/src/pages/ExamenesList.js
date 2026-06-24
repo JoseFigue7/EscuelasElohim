@@ -16,15 +16,22 @@ const ExamenesList = () => {
   const loadExamenes = async () => {
     try {
       setLoading(true);
-      const [examenesResponse, recuperacionesResponse] = await Promise.all([
-        examenService.getAll(),
-        recuperacionService.getMisDisponibles(),
-      ]);
-      setExamenes(unwrapList(examenesResponse));
-      setRecuperaciones(recuperacionesResponse.data || []);
       setError('');
+
+      const examenesResponse = await examenService.getAll();
+      setExamenes(unwrapList(examenesResponse));
+
+      try {
+        const recuperacionesResponse = await recuperacionService.getMisDisponibles();
+        const data = recuperacionesResponse.data;
+        setRecuperaciones(Array.isArray(data) ? data : []);
+      } catch (recErr) {
+        console.warn('No se pudieron cargar recuperaciones:', recErr);
+        setRecuperaciones([]);
+      }
     } catch (err) {
       setError('Error al cargar los exámenes');
+      setExamenes([]);
       console.error(err);
     } finally {
       setLoading(false);

@@ -293,22 +293,40 @@ class RespuestaExamenDetalleSerializer(serializers.ModelSerializer):
 
 
 class RecuperacionExamenSerializer(serializers.ModelSerializer):
-    examen_titulo = serializers.CharField(source='examen.tema.titulo', read_only=True)
+    examen_titulo = serializers.SerializerMethodField()
     alumno_nombre = serializers.SerializerMethodField()
-    numero_recuperacion = serializers.IntegerField(read_only=True)
-    
+    numero_recuperacion = serializers.SerializerMethodField()
+
     class Meta:
         model = RecuperacionExamen
-        fields = '__all__'
+        fields = [
+            'id',
+            'examen',
+            'inscripcion',
+            'fecha_inicio',
+            'fecha_fin',
+            'activa',
+            'completada',
+            'fecha_creacion',
+            'examen_titulo',
+            'alumno_nombre',
+            'numero_recuperacion',
+        ]
         read_only_fields = ['fecha_creacion']
-    
+
+    def get_examen_titulo(self, obj):
+        try:
+            if obj.examen.titulo:
+                return obj.examen.titulo
+            return obj.examen.tema.titulo
+        except Exception:
+            return 'Examen'
+
     def get_alumno_nombre(self, obj):
         return f"{obj.inscripcion.alumno.get_full_name() or obj.inscripcion.alumno.username}"
-    
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['numero_recuperacion'] = instance.numero_recuperacion
-        return data
+
+    def get_numero_recuperacion(self, obj):
+        return obj.numero_recuperacion
 
 
 class RecuperacionExamenAlumnoSerializer(serializers.ModelSerializer):
@@ -320,7 +338,7 @@ class RecuperacionExamenAlumnoSerializer(serializers.ModelSerializer):
     curso_nombre = serializers.CharField(source='examen.tema.curso.nombre', read_only=True)
     numero_preguntas = serializers.IntegerField(source='examen.numero_preguntas', read_only=True)
     puntos_por_pregunta = serializers.IntegerField(source='examen.puntos_por_pregunta', read_only=True)
-    numero_recuperacion = serializers.IntegerField(read_only=True)
+    numero_recuperacion = serializers.SerializerMethodField()
 
     class Meta:
         model = RecuperacionExamen
@@ -345,10 +363,8 @@ class RecuperacionExamenAlumnoSerializer(serializers.ModelSerializer):
             return obj.examen.titulo
         return f"Examen - {obj.examen.tema.titulo}"
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['numero_recuperacion'] = instance.numero_recuperacion
-        return data
+    def get_numero_recuperacion(self, obj):
+        return obj.numero_recuperacion
 
 
 class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
@@ -386,19 +402,36 @@ class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Todas las inscripciones deben ser del mismo curso")
         return value
     
+    @staticmethod
+    def _inscripcion_puede_recuperacion(examen, inscripcion):
+        """Solo pendientes o reprobados; quien ya aprobó (original o recuperación) no puede."""
+        from .models import CalificacionExamen
+        return not CalificacionExamen.inscripcion_aprobada(examen, inscripcion)
+
     def validate(self, attrs):
-        """Validar fechas e inscripciones del mismo curso que el examen."""
+        """Validar fechas, curso e inscripciones elegibles (no aprobados)."""
         if attrs['fecha_inicio'] >= attrs['fecha_fin']:
             raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
 
         examen = attrs['examen']
         curso_id = examen.tema.curso_id
+        no_elegibles = []
         for inscripcion in attrs['inscripciones']:
             if inscripcion.promocion.curso_id != curso_id:
                 raise serializers.ValidationError(
                     "Todos los estudiantes deben estar inscritos en una promoción "
                     "del mismo curso que el examen."
                 )
+            if not self._inscripcion_puede_recuperacion(examen, inscripcion):
+                nombre = inscripcion.alumno.get_full_name() or inscripcion.alumno.username
+                no_elegibles.append(nombre)
+
+        if no_elegibles:
+            raise serializers.ValidationError(
+                "Solo pueden tener recuperación quienes no aprobaron el examen "
+                "(ni el original ni una recuperación). "
+                f"Ya aprobaron: {', '.join(no_elegibles)}"
+            )
         return attrs
     
     def create(self, validated_data):

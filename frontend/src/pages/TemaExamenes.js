@@ -17,13 +17,18 @@ const TemaExamenes = () => {
     try {
       setLoading(true);
       setError('');
-      const [examenesResponse, recuperacionesResponse] = await Promise.all([
-        examenService.getAll(id),
-        recuperacionService.getMisDisponibles(id),
-      ]);
 
+      const examenesResponse = await examenService.getAll(id);
       setExamenes(unwrapList(examenesResponse));
-      setRecuperaciones(recuperacionesResponse.data || []);
+
+      try {
+        const recuperacionesResponse = await recuperacionService.getMisDisponibles(id);
+        const data = recuperacionesResponse.data;
+        setRecuperaciones(Array.isArray(data) ? data : []);
+      } catch (recErr) {
+        console.warn('No se pudieron cargar recuperaciones:', recErr);
+        setRecuperaciones([]);
+      }
     } catch (err) {
       const errorMessage =
         err.response?.data?.error || err.response?.data?.message || 'Error al cargar los exámenes';

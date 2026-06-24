@@ -273,6 +273,52 @@ class ExamenViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(tema_id=tema_id)
         
         return queryset
+
+    def get_object(self):
+        """Permite acceder al examen vía recuperación aunque el examen original haya expirado."""
+        user = self.request.user
+        if not user.es_alumno:
+            return super().get_object()
+
+        recuperacion_id = self.request.query_params.get('recuperacion_id')
+        if not recuperacion_id and self.request.method == 'POST':
+            recuperacion_id = self.request.data.get('recuperacion_id')
+
+        if recuperacion_id and self.action in ('retrieve', 'preguntas', 'responder'):
+            from django.utils import timezone
+            from rest_framework.exceptions import NotFound
+
+            examen = get_object_or_404(
+                Examen.objects.select_related('tema', 'tema__curso'),
+                pk=self.kwargs['pk'],
+            )
+            inscripcion = Inscripcion.objects.filter(
+                alumno=user,
+                promocion__curso=examen.tema.curso,
+                activa=True,
+            ).first()
+            if not inscripcion:
+                raise NotFound('No estás inscrito en una promoción de este curso')
+
+            ahora = timezone.now()
+            recuperacion = RecuperacionExamen.objects.filter(
+                id=recuperacion_id,
+                examen=examen,
+                inscripcion=inscripcion,
+                activa=True,
+                completada=False,
+            ).filter(
+                Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=ahora)
+            ).filter(
+                Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=ahora)
+            ).first()
+
+            if not recuperacion:
+                raise NotFound('Recuperación no válida o no disponible')
+
+            return examen
+
+        return super().get_object()
     
     @action(detail=True, methods=['get'])
     def preguntas(self, request, pk=None):
@@ -497,13 +543,22 @@ class ExamenViewSet(viewsets.ModelViewSet):
         if recuperacion:
             recuperacion.completada = True
             recuperacion.save()
+
+        promedio, _ = PromedioPromocion.objects.get_or_create(inscripcion=inscripcion)
+        promedio.calcular_promedio()
         
         serializer = CalificacionExamenSerializer(calificacion)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class RecuperacionExamenViewSet(viewsets.ModelViewSet):
-    queryset = RecuperacionExamen.objects.select_related('examen', 'inscripcion', 'inscripcion__alumno').all()
+    queryset = RecuperacionExamen.objects.select_related(
+        'examen',
+        'examen__tema',
+        'examen__tema__curso',
+        'inscripcion',
+        'inscripcion__alumno',
+    ).all()
     serializer_class = RecuperacionExamenSerializer
     permission_classes = [IsAuthenticated]
     
@@ -534,13 +589,6 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
             if isinstance(self.request.data.get('inscripciones'), list):
                 return RecuperacionExamenBulkCreateSerializer
         return RecuperacionExamenSerializer
-    
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            # Solo docentes/admin pueden crear/editar recuperaciones
-            from rest_framework.permissions import IsAuthenticated
-            return [IsAuthenticated()]
-        return [IsAuthenticated()]
     
     def create(self, request, *args, **kwargs):
         """Crear recuperación(es) - soporta creación individual o múltiple"""
@@ -580,12 +628,11 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
         """Recuperaciones activas asignadas al alumno actual."""
         user = request.user
         if not user.es_alumno:
-            return Response(
-                {'error': 'Solo los alumnos pueden consultar sus recuperaciones'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response([])
 
         from django.utils import timezone
+        from .serializers import RecuperacionExamenBulkCreateSerializer as BulkSerializer
+
         ahora = timezone.now()
         tema_id = request.query_params.get('tema')
 
@@ -595,7 +642,6 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
             activa=True,
             completada=False,
             examen__activo=True,
-            examen__tema__visible_para_estudiante=True,
         ).filter(
             Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=ahora)
         ).filter(
@@ -610,7 +656,13 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
         if tema_id:
             queryset = queryset.filter(examen__tema_id=tema_id)
 
-        serializer = RecuperacionExamenAlumnoSerializer(queryset, many=True)
+        # Solo recuperaciones para quienes no aprobaron (original ni recuperación)
+        elegibles = [
+            rec for rec in queryset
+            if BulkSerializer._inscripcion_puede_recuperacion(rec.examen, rec.inscripcion)
+        ]
+
+        serializer = RecuperacionExamenAlumnoSerializer(elegibles, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])

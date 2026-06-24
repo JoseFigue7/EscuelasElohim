@@ -347,6 +347,40 @@ class CalificacionExamen(models.Model):
         umbral = getattr(self.examen, 'porcentaje_aprobacion', 70) or 70
         return float(self.porcentaje) >= float(umbral)
 
+    @classmethod
+    def umbral_aprobacion_examen(cls, examen):
+        return float(getattr(examen, 'porcentaje_aprobacion', 70) or 70)
+
+    @classmethod
+    def inscripcion_aprobada(cls, examen, inscripcion):
+        """True si aprobó el examen original o alguna recuperación."""
+        umbral = cls.umbral_aprobacion_examen(examen)
+        return cls.objects.filter(
+            examen=examen,
+            inscripcion=inscripcion,
+            porcentaje__gte=umbral,
+        ).exists()
+
+    @classmethod
+    def get_calificacion_efectiva(cls, examen, inscripcion):
+        """
+        Calificación que representa el resultado final del estudiante en este examen.
+        Si aprobó (normal o recuperación), devuelve la mejor calificación aprobada.
+        Si no aprobó, devuelve el intento normal o la recuperación más reciente.
+        """
+        umbral = cls.umbral_aprobacion_examen(examen)
+        calificaciones = list(
+            cls.objects.filter(examen=examen, inscripcion=inscripcion)
+        )
+        if not calificaciones:
+            return None
+
+        aprobadas = [c for c in calificaciones if float(c.porcentaje) >= umbral]
+        if aprobadas:
+            return max(aprobadas, key=lambda c: (float(c.porcentaje), c.fecha_completado))
+
+        return max(calificaciones, key=lambda c: c.fecha_completado)
+
 
 class PromedioPromocion(models.Model):
     """Modelo para almacenar el promedio final de un alumno en una promoción"""
@@ -370,26 +404,9 @@ class PromedioPromocion(models.Model):
         
         calificaciones_finales = []
         for examen in examenes:
-            # Buscar calificación de recuperación primero (la más reciente si hay varias)
-            calificacion_recuperacion = CalificacionExamen.objects.filter(
-                inscripcion=self.inscripcion,
-                examen=examen,
-                recuperacion__isnull=False
-            ).order_by('-fecha_completado').first()
-            
-            if calificacion_recuperacion:
-                # Si hay recuperación, usar esa calificación
-                calificaciones_finales.append(calificacion_recuperacion)
-            else:
-                # Si no hay recuperación, usar la calificación normal
-                calificacion_normal = CalificacionExamen.objects.filter(
-                    inscripcion=self.inscripcion,
-                    examen=examen,
-                    recuperacion__isnull=True
-                ).first()
-                
-                if calificacion_normal:
-                    calificaciones_finales.append(calificacion_normal)
+            calificacion = CalificacionExamen.get_calificacion_efectiva(examen, self.inscripcion)
+            if calificacion:
+                calificaciones_finales.append(calificacion)
         
         if calificaciones_finales:
             total_porcentajes = sum(float(cal.porcentaje) for cal in calificaciones_finales)

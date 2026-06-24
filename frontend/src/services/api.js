@@ -233,7 +233,10 @@ export const preguntaService = {
 export const examenService = {
   getAll: (temaId) => 
     api.get('/examenes/', { params: temaId ? { tema: temaId } : {} }),
-  getById: (id) => api.get(`/examenes/${id}/`),
+  getById: (id, recuperacionId) =>
+    api.get(`/examenes/${id}/`, {
+      params: recuperacionId ? { recuperacion_id: recuperacionId } : {},
+    }),
   create: (data) => api.post('/examenes/', data),
   update: (id, data) => api.put(`/examenes/${id}/`, data),
   delete: (id) => api.delete(`/examenes/${id}/`),

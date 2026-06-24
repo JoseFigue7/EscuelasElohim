@@ -23,7 +23,7 @@ const TomarExamen = () => {
       setError('');
 
       const [examenResponse, preguntasResponse] = await Promise.all([
-        examenService.getById(id),
+        examenService.getById(id, recuperacionId || undefined),
         examenService.preguntas(id, recuperacionId || undefined),
       ]);
 
