@@ -292,6 +292,48 @@ class RespuestaExamenDetalleSerializer(serializers.ModelSerializer):
         return self._texto_respuesta(obj.pregunta, obj.respuesta_dada)
 
 
+def _formatear_respuesta_pregunta(pregunta, valor):
+    """Convierte el valor almacenado (a, b, verdadero, etc.) en texto legible."""
+    if not valor:
+        return 'Sin respuesta'
+    valor_normalizado = valor.lower().strip()
+    if pregunta.tipo_pregunta == 'opcion_multiple':
+        opciones = {
+            'a': pregunta.opcion_a,
+            'b': pregunta.opcion_b,
+            'c': pregunta.opcion_c,
+            'd': pregunta.opcion_d,
+        }
+        texto_opcion = opciones.get(valor_normalizado, '')
+        if texto_opcion:
+            return f"{valor_normalizado.upper()}) {texto_opcion}"
+        return valor_normalizado.upper()
+    if pregunta.tipo_pregunta == 'verdadero_falso':
+        return valor_normalizado.capitalize()
+    return valor
+
+
+class RespuestaRevisionSerializer(serializers.ModelSerializer):
+    pregunta_texto = serializers.CharField(source='pregunta.pregunta_texto', read_only=True)
+    tipo_pregunta = serializers.CharField(source='pregunta.tipo_pregunta', read_only=True)
+    respuesta_dada_texto = serializers.SerializerMethodField()
+    respuesta_correcta_texto = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RespuestaExamen
+        fields = [
+            'id', 'pregunta', 'pregunta_texto', 'tipo_pregunta',
+            'respuesta_dada', 'respuesta_dada_texto',
+            'respuesta_correcta_texto', 'es_correcta', 'puntos_obtenidos',
+        ]
+
+    def get_respuesta_dada_texto(self, obj):
+        return _formatear_respuesta_pregunta(obj.pregunta, obj.respuesta_dada)
+
+    def get_respuesta_correcta_texto(self, obj):
+        return _formatear_respuesta_pregunta(obj.pregunta, obj.pregunta.respuesta_correcta)
+
+
 class RecuperacionExamenSerializer(serializers.ModelSerializer):
     examen_titulo = serializers.SerializerMethodField()
     alumno_nombre = serializers.SerializerMethodField()
@@ -459,7 +501,11 @@ class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
 
 class CalificacionExamenSerializer(serializers.ModelSerializer):
     examen_titulo = serializers.CharField(source='examen.titulo', read_only=True)
+    tema_titulo = serializers.CharField(source='examen.tema.titulo', read_only=True)
+    promocion_nombre = serializers.CharField(source='inscripcion.promocion.nombre', read_only=True)
+    examen_fecha_fin = serializers.DateTimeField(source='examen.fecha_fin', read_only=True)
     alumno_nombre = serializers.SerializerMethodField()
+    puede_revisar = serializers.SerializerMethodField()
     
     class Meta:
         model = CalificacionExamen
@@ -468,6 +514,9 @@ class CalificacionExamenSerializer(serializers.ModelSerializer):
     
     def get_alumno_nombre(self, obj):
         return f"{obj.inscripcion.alumno.get_full_name() or obj.inscripcion.alumno.username}"
+
+    def get_puede_revisar(self, obj):
+        return obj.puede_revisar_respuestas()
     
     def to_representation(self, instance):
         data = super().to_representation(instance)

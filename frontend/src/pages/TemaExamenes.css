@@ -183,6 +183,29 @@
   color: white;
 }
 
+.btn-revisar-examen-tema {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--primary-color);
+  color: white;
+  padding: 14px 28px;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  font-weight: 600;
+  margin-top: 24px;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
+  font-size: 15px;
+}
+
+.btn-revisar-examen-tema:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  text-decoration: none;
+  color: white;
+}
+
 .empty-state {
   text-align: center;
   padding: 80px 32px;

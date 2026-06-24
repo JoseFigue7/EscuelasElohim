@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// Producción: por defecto misma origen (/api) para no mezclar https://dominio con http://IP (mixed content).
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api');
+
+export { API_URL };
 
 // Configurar axios por defecto
 const api = axios.create({
@@ -136,6 +141,11 @@ export const authService = {
   getUser: () => {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
+  },
+
+  restablecerContrasena: async (data) => {
+    const response = await api.post('/auth/restablecer-contrasena/', data);
+    return response.data;
   },
 };
 
@@ -283,6 +293,7 @@ export const calificacionService = {
   },
   getById: (id) => api.get(`/calificaciones/${id}/`),
   getDetalle: (id) => api.get(`/calificaciones/${id}/detalle/`),
+  revisar: (id) => api.get(`/calificaciones/${id}/revisar/`),
 };
 
 // Servicio de Promedios

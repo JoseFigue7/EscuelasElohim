@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './components/Login';
+import RestablecerContrasena from './pages/RestablecerContrasena';
 import AlumnoDashboard from './pages/AlumnoDashboard';
 import DocenteDashboard from './pages/DocenteDashboard';
 import PromocionDetail from './pages/PromocionDetail';
@@ -11,6 +12,7 @@ import TemaExamenes from './pages/TemaExamenes';
 import ExamenesList from './pages/ExamenesList';
 import TomarExamen from './pages/TomarExamen';
 import Calificaciones from './pages/Calificaciones';
+import RevisarExamen from './pages/RevisarExamen';
 import GestionarPromocion from './pages/GestionarPromocion';
 import GestionarPromociones from './pages/GestionarPromociones';
 import GestionarUsuarios from './pages/GestionarUsuarios';
@@ -36,6 +38,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
           <Route
             path="/*"
             element={
@@ -48,6 +51,7 @@ function App() {
                     <Route path="/examenes" element={<ExamenesList />} />
                     <Route path="/examenes/:id" element={<TomarExamen />} />
                     <Route path="/calificaciones" element={<Calificaciones />} />
+                    <Route path="/calificaciones/:id/revisar" element={<RevisarExamen />} />
                     <Route
                       path="/promociones"
                       element={
