@@ -604,10 +604,20 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
             serializer = RecuperacionExamenBulkCreateSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             recuperaciones = serializer.save()
+            omitidos = getattr(serializer, '_omitidos', [])
             
             # Retornar las recuperaciones creadas
             response_serializer = RecuperacionExamenSerializer(recuperaciones, many=True)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+            response_data = {
+                'recuperaciones': response_serializer.data,
+                'creadas': len(recuperaciones),
+            }
+            if omitidos:
+                response_data['omitidos'] = omitidos
+                response_data['advertencia'] = (
+                    f"No se asignó recuperación a quienes ya aprobaron: {', '.join(omitidos)}"
+                )
+            return Response(response_data, status=status.HTTP_201_CREATED)
         else:
             # Creación individual (compatibilidad hacia atrás)
             serializer = self.get_serializer(data=request.data)

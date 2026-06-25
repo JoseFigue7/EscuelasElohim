@@ -15,6 +15,13 @@ const formatFechaHora = (iso) => {
   });
 };
 
+const toServerDateTime = (localValue) => {
+  if (!localValue) return localValue;
+  const date = new Date(localValue);
+  if (Number.isNaN(date.getTime())) return localValue;
+  return date.toISOString();
+};
+
 const TemaDetail = () => {
   const { promocionId, temaId } = useParams();
   const navigate = useNavigate();
@@ -82,7 +89,8 @@ const TemaDetail = () => {
         const examenesResponse = await examenService.getAll(temaId);
         const examenes = unwrapList(examenesResponse);
         if (examenes.length > 0) {
-          setExamen(examenes[0]);
+          const examenResponse = await examenService.getById(examenes[0].id);
+          setExamen(examenResponse.data);
 
           try {
             const calificacionesResponse = await calificacionService.getAll(examenes[0].id);
@@ -315,23 +323,32 @@ const TemaDetail = () => {
     const count = recuperacionForm.inscripciones.length;
 
     try {
-      await recuperacionService.create({
+      const response = await recuperacionService.create({
         examen: examen.id,
         inscripciones: recuperacionForm.inscripciones,
-        fecha_inicio: recuperacionForm.fecha_inicio,
-        fecha_fin: recuperacionForm.fecha_fin,
+        fecha_inicio: toServerDateTime(recuperacionForm.fecha_inicio),
+        fecha_fin: toServerDateTime(recuperacionForm.fecha_fin),
         activa: true,
       });
 
       setShowRecuperacionForm(false);
       setRecuperacionForm({ inscripciones: [], fecha_inicio: '', fecha_fin: '' });
       await loadData();
-      alert(`${count} recuperación${count > 1 ? 'es' : ''} creada${count > 1 ? 's' : ''} correctamente`);
+      const creadas = response.data?.creadas ?? count;
+      let mensaje = `${creadas} recuperación${creadas > 1 ? 'es' : ''} creada${creadas > 1 ? 's' : ''} correctamente`;
+      if (response.data?.advertencia) {
+        mensaje += `\n\n${response.data.advertencia}`;
+      }
+      alert(mensaje);
     } catch (err) {
       const data = err.response?.data;
       let msg = err.message;
       if (typeof data === 'string') {
         msg = data;
+      } else if (data?.non_field_errors) {
+        msg = Array.isArray(data.non_field_errors)
+          ? data.non_field_errors.join('\n')
+          : String(data.non_field_errors);
       } else if (data?.detail) {
         msg = data.detail;
       } else if (data?.error) {
@@ -342,10 +359,11 @@ const TemaDetail = () => {
         msg = Object.entries(data)
           .map(([key, value]) => {
             const text = Array.isArray(value) ? value.join(' ') : String(value);
-            return key === 'non_field_errors' ? text : text;
+            return key === 'non_field_errors' ? text : `${key}: ${text}`;
           })
           .join('\n');
       }
+      console.error('Error al crear recuperación:', data || err);
       alert('Error al crear recuperación: ' + msg);
     }
   };

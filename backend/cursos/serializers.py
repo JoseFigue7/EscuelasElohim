@@ -231,7 +231,7 @@ class ExamenListSerializer(serializers.ModelSerializer):
         model = Examen
         fields = ['id', 'titulo', 'descripcion', 'tema_titulo', 'curso_nombre', 
                   'numero_preguntas', 'puntos_por_pregunta', 'fecha_inicio', 'fecha_fin', 
-                  'activo', 'cantidad_preguntas_disponibles']
+                  'porcentaje_aprobacion', 'activo', 'cantidad_preguntas_disponibles']
     
     def get_cantidad_preguntas_disponibles(self, obj):
         """Retorna la cantidad de preguntas disponibles en el banco del tema"""
@@ -412,6 +412,14 @@ class RecuperacionExamenAlumnoSerializer(serializers.ModelSerializer):
 class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
     """Serializer para crear múltiples recuperaciones a la vez"""
     from .models import Examen, Inscripcion
+
+    DATETIME_INPUT_FORMATS = [
+        'iso-8601',
+        '%Y-%m-%dT%H:%M:%S.%fZ',
+        '%Y-%m-%dT%H:%M:%S.%f',
+        '%Y-%m-%dT%H:%M:%S',
+        '%Y-%m-%dT%H:%M',
+    ]
     
     examen = serializers.PrimaryKeyRelatedField(queryset=Examen.objects.all())
     inscripciones = serializers.ListField(
@@ -419,8 +427,8 @@ class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
         min_length=1,
         help_text='Lista de IDs de inscripciones'
     )
-    fecha_inicio = serializers.DateTimeField()
-    fecha_fin = serializers.DateTimeField()
+    fecha_inicio = serializers.DateTimeField(input_formats=DATETIME_INPUT_FORMATS)
+    fecha_fin = serializers.DateTimeField(input_formats=DATETIME_INPUT_FORMATS)
     activa = serializers.BooleanField(default=True)
     
     def validate_inscripciones(self, value):
@@ -453,10 +461,13 @@ class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         """Validar fechas, curso e inscripciones elegibles (no aprobados)."""
         if attrs['fecha_inicio'] >= attrs['fecha_fin']:
-            raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
+            raise serializers.ValidationError(
+                "La fecha de fin debe ser posterior a la fecha de inicio"
+            )
 
         examen = attrs['examen']
         curso_id = examen.tema.curso_id
+        elegibles = []
         no_elegibles = []
         for inscripcion in attrs['inscripciones']:
             if inscripcion.promocion.curso_id != curso_id:
@@ -467,13 +478,21 @@ class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
             if not self._inscripcion_puede_recuperacion(examen, inscripcion):
                 nombre = inscripcion.alumno.get_full_name() or inscripcion.alumno.username
                 no_elegibles.append(nombre)
+            else:
+                elegibles.append(inscripcion)
 
-        if no_elegibles:
+        if not elegibles:
             raise serializers.ValidationError(
-                "Solo pueden tener recuperación quienes no aprobaron el examen "
-                "(ni el original ni una recuperación). "
-                f"Ya aprobaron: {', '.join(no_elegibles)}"
+                "Ningún estudiante seleccionado puede tener recuperación. "
+                + (
+                    f"Ya aprobaron el examen: {', '.join(no_elegibles)}"
+                    if no_elegibles
+                    else "Verifica la selección."
+                )
             )
+
+        self._omitidos = no_elegibles
+        attrs['inscripciones'] = elegibles
         return attrs
     
     def create(self, validated_data):
