@@ -3,6 +3,21 @@ import { useParams, Link } from 'react-router-dom';
 import { calificacionService } from '../services/api';
 import './RevisarExamen.css';
 
+/** Evita mostrar la misma opción como errónea y correcta (clave corregida después del intento). */
+const sigueIncorrecta = (respuesta) => {
+  const dada = (respuesta.respuesta_dada || '').toLowerCase().trim();
+  const dadaTexto = respuesta.respuesta_dada_texto || '';
+  const correctaTexto = respuesta.respuesta_correcta_texto || '';
+
+  if (dadaTexto && correctaTexto && dadaTexto === correctaTexto) {
+    return false;
+  }
+  if (dada && correctaTexto.toLowerCase().startsWith(`${dada})`)) {
+    return false;
+  }
+  return true;
+};
+
 const RevisarExamen = () => {
   const { id } = useParams();
   const [revision, setRevision] = useState(null);
@@ -46,7 +61,7 @@ const RevisarExamen = () => {
     );
   }
 
-  const respuestas = revision?.respuestas_incorrectas || [];
+  const respuestas = (revision?.respuestas_incorrectas || []).filter(sigueIncorrecta);
 
   return (
     <div className="revisar-examen">

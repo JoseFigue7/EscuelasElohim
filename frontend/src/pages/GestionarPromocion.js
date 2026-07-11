@@ -344,6 +344,38 @@ const GestionarPromocion = () => {
     }
   };
 
+  const handleDescargarNotas = async () => {
+    try {
+      const response = await promocionService.exportarNotas(id);
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const promocionSafe = safeFilenamePart(promocion?.nombre) || `promocion_${id}`;
+      link.download = `Notas_${promocionSafe}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      let detail = 'No se pudo descargar el Excel de notas.';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          detail = parsed.error || parsed.detail || detail;
+        } catch (_) {
+          // keep default
+        }
+      } else if (err.response?.data?.error || err.response?.data?.detail) {
+        detail = err.response.data.error || err.response.data.detail;
+      }
+      alert(detail);
+    }
+  };
+
   const loadPromedios = useCallback(async ({ calcular = false, silent = false } = {}) => {
     setPromediosLoading(true);
     let calcularError = null;
@@ -974,6 +1006,9 @@ const GestionarPromocion = () => {
           <div className="section-header">
             <h2>Promedios y Diplomas</h2>
             <div className="action-buttons">
+              <button onClick={handleDescargarNotas} className="btn-secondary">
+                Descargar Notas
+              </button>
               <button onClick={handleDescargarDiplomasMasivo} className="btn-primary">
                 Descargar Diplomas
               </button>

@@ -165,6 +165,8 @@ export const promocionService = {
   create: (data) => api.post('/promociones/', data),
   update: (id, data) => api.put(`/promociones/${id}/`, data),
   delete: (id) => api.delete(`/promociones/${id}/`),
+  exportarNotas: (id) =>
+    api.get(`/promociones/${id}/exportar_notas/`, { responseType: 'blob' }),
 };
 
 // Servicio de Temas

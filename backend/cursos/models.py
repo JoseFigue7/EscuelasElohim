@@ -179,6 +179,16 @@ class Pregunta(models.Model):
     def __str__(self):
         return f"{self.tema} - {self.pregunta_texto[:50]}..."
 
+    def es_respuesta_correcta(self, respuesta_dada):
+        """Compara la respuesta del alumno con la clave actual (case-insensitive)."""
+        if self.tipo_pregunta == 'texto':
+            return False
+        dada = (respuesta_dada or '').lower().strip()
+        correcta = (self.respuesta_correcta or '').lower().strip()
+        if not dada or not correcta:
+            return False
+        return dada == correcta
+
 
 class Examen(models.Model):
     """Modelo para los exámenes/evaluaciones - cada tema tiene un solo examen"""

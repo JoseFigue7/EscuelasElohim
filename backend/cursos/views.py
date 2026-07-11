@@ -67,6 +67,120 @@ class PromocionViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
+    @action(detail=True, methods=['get'])
+    def exportar_notas(self, request, pk=None):
+        """Descarga un Excel con notas por alumno (filas) y tema (columnas). Solo docente/admin."""
+        user = request.user
+        if not (user.es_docente or user.is_superuser):
+            return Response(
+                {'error': 'Solo docentes y administradores pueden descargar las notas'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        promocion = self.get_object()
+        temas = list(
+            Tema.objects.filter(curso=promocion.curso)
+            .select_related('examen')
+            .order_by('numero_tema')
+        )
+        inscripciones = list(
+            Inscripcion.objects.filter(promocion=promocion, activa=True)
+            .select_related('alumno')
+            .order_by('alumno__last_name', 'alumno__first_name', 'alumno__username')
+        )
+
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+        from django.http import HttpResponse
+        from urllib.parse import quote
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Notas'
+
+        headers = ['Alumno']
+        for tema in temas:
+            headers.append(f'T{tema.numero_tema} - {tema.titulo}')
+        headers.extend(['Promedio', 'Estado'])
+        ws.append(headers)
+
+        header_font = Font(bold=True, color='FFFFFF')
+        header_fill = PatternFill('solid', fgColor='1F4E79')
+        thin = Border(
+            left=Side(style='thin', color='D0D7DE'),
+            right=Side(style='thin', color='D0D7DE'),
+            top=Side(style='thin', color='D0D7DE'),
+            bottom=Side(style='thin', color='D0D7DE'),
+        )
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = thin
+
+        for inscripcion in inscripciones:
+            alumno = inscripcion.alumno
+            nombre = (alumno.get_full_name() or '').strip() or alumno.username
+            row = [nombre]
+            porcentajes = []
+
+            for tema in temas:
+                try:
+                    examen = tema.examen
+                except Examen.DoesNotExist:
+                    row.append(None)
+                    continue
+                calificacion = CalificacionExamen.get_calificacion_efectiva(examen, inscripcion)
+                if calificacion is None:
+                    row.append(None)
+                else:
+                    porcentaje = round(float(calificacion.porcentaje), 2)
+                    row.append(porcentaje)
+                    porcentajes.append(porcentaje)
+
+            if porcentajes:
+                promedio = round(sum(porcentajes) / len(porcentajes), 2)
+                estado = 'Aprobado' if promedio >= 80 else 'Reprobado'
+            else:
+                promedio = None
+                estado = ''
+
+            row.extend([promedio, estado])
+            ws.append(row)
+
+            excel_row = ws.max_row
+            for col_idx in range(1, len(headers) + 1):
+                cell = ws.cell(row=excel_row, column=col_idx)
+                cell.border = thin
+                if col_idx > 1:
+                    cell.alignment = Alignment(horizontal='center')
+
+        ws.column_dimensions['A'].width = 32
+        for col_idx in range(2, len(headers) + 1):
+            ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = 18
+        ws.row_dimensions[1].height = 36
+        ws.freeze_panes = 'B2'
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        base_name = promocion.nombre or f'promocion_{promocion.id}'
+        safe_name = ''.join(ch if ch.isalnum() or ch in ('-', '_') else '_' for ch in base_name)
+        safe_name = safe_name.strip('_') or f'promocion_{promocion.id}'
+        filename = f'Notas_{safe_name}.xlsx'
+        filename_encoded = quote(filename, safe='')
+
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename="{filename}"; filename*=UTF-8\'\'{filename_encoded}'
+        )
+        return response
+
 
 class TemaViewSet(viewsets.ModelViewSet):
     queryset = Tema.objects.select_related('curso').prefetch_related('materiales').all()
@@ -509,13 +623,8 @@ class ExamenViewSet(viewsets.ModelViewSet):
             
             pregunta = get_object_or_404(Pregunta, id=pregunta_id, tema=examen.tema)
             
-            # Verificar si la respuesta es correcta
-            es_correcta = False
-            if pregunta.tipo_pregunta == 'opcion_multiple':
-                es_correcta = respuesta_dada.lower().strip() == pregunta.respuesta_correcta.lower().strip()
-            elif pregunta.tipo_pregunta == 'verdadero_falso':
-                es_correcta = respuesta_dada.lower().strip() == pregunta.respuesta_correcta.lower().strip()
-            
+            # Verificar si la respuesta es correcta (null-safe, case-insensitive)
+            es_correcta = pregunta.es_respuesta_correcta(respuesta_dada)
             puntos_obtenidos = Decimal(examen.puntos_por_pregunta) if es_correcta else Decimal(0)
             puntos_totales_obtenidos += float(puntos_obtenidos)
             
@@ -755,26 +864,48 @@ class CalificacionExamenViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         if calificacion.recuperacion:
-            respuestas = RespuestaExamen.objects.filter(
+            respuestas_qs = RespuestaExamen.objects.filter(
                 examen=calificacion.examen,
                 inscripcion=calificacion.inscripcion,
                 recuperacion=calificacion.recuperacion,
-                es_correcta=False,
             ).select_related('pregunta')
         else:
-            respuestas = RespuestaExamen.objects.filter(
+            respuestas_qs = RespuestaExamen.objects.filter(
                 examen=calificacion.examen,
                 inscripcion=calificacion.inscripcion,
                 recuperacion__isnull=True,
-                es_correcta=False,
             ).select_related('pregunta')
 
-        serializer = RespuestaRevisionSerializer(respuestas, many=True)
+        # Si la clave se corrigió después del intento, sanear banderas obsoletas
+        # (evita mostrar la misma opción como errónea y correcta a la vez).
+        puntos_pregunta = Decimal(calificacion.examen.puntos_por_pregunta)
+        hubo_correccion = False
+        for respuesta in respuestas_qs:
+            coincide_ahora = respuesta.pregunta.es_respuesta_correcta(respuesta.respuesta_dada)
+            if coincide_ahora and not respuesta.es_correcta:
+                respuesta.es_correcta = True
+                respuesta.puntos_obtenidos = puntos_pregunta
+                respuesta.save(update_fields=['es_correcta', 'puntos_obtenidos'])
+                hubo_correccion = True
+
+        if hubo_correccion:
+            calificacion.calcular_calificacion()
+            promedio, _ = PromedioPromocion.objects.get_or_create(
+                inscripcion=calificacion.inscripcion
+            )
+            promedio.calcular_promedio()
+
+        respuestas_incorrectas = [
+            r for r in respuestas_qs
+            if not r.es_correcta and not r.pregunta.es_respuesta_correcta(r.respuesta_dada)
+        ]
+
+        serializer = RespuestaRevisionSerializer(respuestas_incorrectas, many=True)
         return Response({
             'calificacion_id': calificacion.id,
             'examen_titulo': calificacion.examen.titulo,
             'tema_titulo': calificacion.examen.tema.titulo,
-            'total_incorrectas': respuestas.count(),
+            'total_incorrectas': len(respuestas_incorrectas),
             'respuestas_incorrectas': serializer.data,
         })
 
