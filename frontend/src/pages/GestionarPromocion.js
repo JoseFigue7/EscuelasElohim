@@ -131,6 +131,38 @@ const GestionarPromocion = () => {
     }
   };
 
+  const handleMoveTema = async (temaId, direction) => {
+    if (hasTemaSearch) {
+      alert('Limpia la búsqueda para poder reordenar los temas.');
+      return;
+    }
+    if (!promocion?.curso) return;
+
+    const index = temas.findIndex((t) => t.id === temaId);
+    const newIndex = index + direction;
+    if (index < 0 || newIndex < 0 || newIndex >= temas.length) return;
+
+    const nuevoOrden = [...temas];
+    const [moved] = nuevoOrden.splice(index, 1);
+    nuevoOrden.splice(newIndex, 0, moved);
+    setTemas(nuevoOrden);
+
+    try {
+      const response = await temaService.reordenar(
+        promocion.curso,
+        nuevoOrden.map((t) => t.id)
+      );
+      setTemas(Array.isArray(response.data) ? response.data : nuevoOrden);
+    } catch (err) {
+      console.error('Error al reordenar temas:', err.response?.data || err);
+      loadData();
+      alert(
+        'Error al reordenar temas: ' +
+          (err.response?.data?.error || err.response?.data?.detail || err.message)
+      );
+    }
+  };
+
   const handleInscribirAlumno = async (e) => {
     e.preventDefault();
     if (!selectedAlumno) {
@@ -781,46 +813,76 @@ const GestionarPromocion = () => {
           )}
 
           <div className="temas-list">
-            {filteredTemas.map((tema) => (
-              <Link
+            {filteredTemas.map((tema) => {
+              const fullIndex = temas.findIndex((t) => t.id === tema.id);
+              return (
+              <div
                 key={tema.id}
-                to={`/promociones/${id}/temas/${tema.id}`}
                 className={`tema-item ${tema.visible_para_estudiante === false ? 'tema-oculto' : ''}`}
               >
-                <div className="tema-item-main">
-                  <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
-                  {tema.fecha_clase && (
-                    <p>Fecha: {new Date(tema.fecha_clase).toLocaleDateString()}</p>
-                  )}
-                  {tema.visible_para_estudiante === false && (
-                    <span className="tema-oculto-badge">Oculto para estudiantes</span>
-                  )}
-                </div>
-                <div className="tema-item-actions">
-                  <label
-                    className="switch-label"
-                    title={tema.visible_para_estudiante !== false ? 'Visible para estudiantes' : 'Oculto para estudiantes'}
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    <span className="switch-text">Visible</span>
-                    <span className="switch">
-                      <input
-                        type="checkbox"
-                        checked={tema.visible_para_estudiante !== false}
-                        onChange={(e) => handleToggleTemaVisible(tema, e)}
-                      />
-                      <span className="switch-slider" />
-                    </span>
-                  </label>
-                  <span className="tema-item-arrow">→</span>
-                </div>
-              </Link>
-            ))}
+                {!hasTemaSearch && (
+                  <div className="tema-orden-controls">
+                    <button
+                      type="button"
+                      className="btn-orden"
+                      title="Subir"
+                      disabled={fullIndex <= 0}
+                      onClick={() => handleMoveTema(tema.id, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-orden"
+                      title="Bajar"
+                      disabled={fullIndex < 0 || fullIndex >= temas.length - 1}
+                      onClick={() => handleMoveTema(tema.id, 1)}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+                <Link
+                  to={`/promociones/${id}/temas/${tema.id}`}
+                  className="tema-item-link"
+                >
+                  <div className="tema-item-main">
+                    <h3>{tema.titulo}</h3>
+                    {tema.fecha_clase && (
+                      <p>Fecha: {new Date(tema.fecha_clase).toLocaleDateString()}</p>
+                    )}
+                    {tema.visible_para_estudiante === false && (
+                      <span className="tema-oculto-badge">Oculto para estudiantes</span>
+                    )}
+                  </div>
+                  <div className="tema-item-actions">
+                    <label
+                      className="switch-label"
+                      title={tema.visible_para_estudiante !== false ? 'Visible para estudiantes' : 'Oculto para estudiantes'}
+                      onClick={(e) => e.preventDefault()}
+                    >
+                      <span className="switch-text">Visible</span>
+                      <span className="switch">
+                        <input
+                          type="checkbox"
+                          checked={tema.visible_para_estudiante !== false}
+                          onChange={(e) => handleToggleTemaVisible(tema, e)}
+                        />
+                        <span className="switch-slider" />
+                      </span>
+                    </label>
+                    <span className="tema-item-arrow">→</span>
+                  </div>
+                </Link>
+              </div>
+              );
+            })}
             {temas.length === 0 && (
               <div className="empty-state">
                 <p>No hay temas creados aún para este curso.</p>
                 <p style={{marginTop: '8px', fontSize: '0.9rem', color: '#888'}}>
                   Al crear un tema, estará disponible para todas las promociones de este curso.
+                  Usa las flechas ↑ ↓ para ordenarlos.
                 </p>
               </div>
             )}

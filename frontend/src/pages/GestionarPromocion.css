@@ -335,6 +335,55 @@
   transition: all var(--transition-base);
   text-decoration: none;
   color: inherit;
+  gap: 12px;
+}
+
+.tema-item-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  gap: 16px;
+}
+
+.tema-item-link:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+.tema-orden-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-orden {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.btn-orden:hover:not(:disabled) {
+  background: var(--gray-50, #f3f4f6);
+  border-color: var(--primary-color, #2563eb);
+  color: var(--primary-color, #2563eb);
+}
+
+.btn-orden:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .tema-item:hover,

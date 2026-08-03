@@ -151,13 +151,72 @@ class TemaSerializer(serializers.ModelSerializer):
 
 class TemaListSerializer(serializers.ModelSerializer):
     curso_nombre = serializers.CharField(source='curso.nombre', read_only=True)
-    
+    examen_estado = serializers.SerializerMethodField()
+    examen_porcentaje = serializers.SerializerMethodField()
+
     class Meta:
         model = Tema
         fields = [
             'id', 'numero_tema', 'titulo', 'descripcion', 'fecha_clase',
             'curso_nombre', 'visible_para_estudiante',
+            'examen_estado', 'examen_porcentaje',
         ]
+
+    def _calificacion_alumno(self, obj):
+        """Cachea por tema la calificación efectiva del alumno (si aplica)."""
+        cache = self.context.setdefault('_calificaciones_tema', {})
+        if obj.id in cache:
+            return cache[obj.id]
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'es_alumno', False):
+            cache[obj.id] = None
+            return None
+
+        try:
+            examen = obj.examen
+        except Examen.DoesNotExist:
+            cache[obj.id] = ('sin_examen', None)
+            return cache[obj.id]
+
+        inscripcion = self.context.get('_inscripcion_alumno')
+        if '_inscripcion_alumno' not in self.context and 'promocion_id' in self.context:
+            from .models import Inscripcion
+            inscripcion = Inscripcion.objects.filter(
+                alumno=user,
+                promocion_id=self.context['promocion_id'],
+                activa=True,
+            ).first()
+            self.context['_inscripcion_alumno'] = inscripcion
+        else:
+            inscripcion = self.context.get('_inscripcion_alumno')
+
+        if not inscripcion:
+            cache[obj.id] = ('sin_examen', None)
+            return cache[obj.id]
+
+        from .models import CalificacionExamen
+        cal = CalificacionExamen.get_calificacion_efectiva(examen, inscripcion)
+        if cal is None:
+            cache[obj.id] = ('no_presentado', None)
+        elif cal.aprobado:
+            cache[obj.id] = ('aprobado', float(cal.porcentaje))
+        else:
+            cache[obj.id] = ('reprobado', float(cal.porcentaje))
+        return cache[obj.id]
+
+    def get_examen_estado(self, obj):
+        result = self._calificacion_alumno(obj)
+        if result is None:
+            return None
+        return result[0]
+
+    def get_examen_porcentaje(self, obj):
+        result = self._calificacion_alumno(obj)
+        if result is None:
+            return None
+        return result[1]
 
 
 class InscripcionSerializer(serializers.ModelSerializer):

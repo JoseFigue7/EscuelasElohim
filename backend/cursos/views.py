@@ -190,6 +190,13 @@ class TemaViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return TemaListSerializer
         return TemaSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        promocion_id = self.request.query_params.get('promocion')
+        if promocion_id:
+            context['promocion_id'] = promocion_id
+        return context
     
     def get_queryset(self):
         user = self.request.user
@@ -219,8 +226,66 @@ class TemaViewSet(viewsets.ModelViewSet):
         curso_id = self.request.query_params.get('curso')
         if curso_id:
             queryset = queryset.filter(curso_id=curso_id)
+
+        if self.action == 'list':
+            queryset = queryset.select_related('examen')
         
         return queryset
+
+    @action(detail=False, methods=['post'], url_path='reordenar')
+    def reordenar(self, request):
+        """Reasigna el orden (numero_tema) de los temas de un curso."""
+        from django.db import transaction
+
+        user = request.user
+        if not (user.es_docente or user.is_superuser):
+            return Response(
+                {'error': 'Solo los docentes pueden reordenar temas'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        curso_id = request.data.get('curso')
+        orden_ids = request.data.get('orden')
+        if not curso_id:
+            return Response({'error': 'curso es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(orden_ids, list) or not orden_ids:
+            return Response(
+                {'error': 'orden debe ser una lista de IDs de temas'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            orden_ids = [int(tema_id) for tema_id in orden_ids]
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'orden debe contener IDs numéricos'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(orden_ids) != len(set(orden_ids)):
+            return Response(
+                {'error': 'orden no puede contener IDs duplicados'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        temas = list(Tema.objects.filter(curso_id=curso_id).order_by('numero_tema'))
+        tema_ids_curso = {t.id for t in temas}
+        if set(orden_ids) != tema_ids_curso:
+            return Response(
+                {'error': 'orden debe incluir exactamente todos los temas del curso'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Evitar conflictos de unique_together (curso, numero_tema)
+            for offset, tema_id in enumerate(orden_ids):
+                Tema.objects.filter(id=tema_id).update(numero_tema=100000 + offset)
+            for index, tema_id in enumerate(orden_ids, start=1):
+                Tema.objects.filter(id=tema_id).update(numero_tema=index)
+
+        temas_actualizados = Tema.objects.filter(curso_id=curso_id).order_by('numero_tema')
+        serializer = TemaListSerializer(temas_actualizados, many=True, context=self.get_serializer_context())
+        return Response(serializer.data)
 
 
 class MaterialViewSet(viewsets.ModelViewSet):

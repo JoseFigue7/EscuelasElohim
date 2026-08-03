@@ -120,7 +120,7 @@ const PreguntasSection = ({ temas, onRefresh }) => {
               style={{cursor: 'pointer'}}
             >
               <div>
-                <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
+                <h3>{tema.titulo}</h3>
               </div>
               <span>→</span>
             </div>
@@ -136,7 +136,7 @@ const PreguntasSection = ({ temas, onRefresh }) => {
               <button onClick={() => setSelectedTema(null)} className="btn-secondary" style={{marginRight: '10px'}}>
                 ← Volver a temas
               </button>
-              <h2 style={{display: 'inline'}}>Preguntas - Tema {selectedTema.numero_tema}: {selectedTema.titulo}</h2>
+              <h2 style={{display: 'inline'}}>Preguntas - {selectedTema.titulo}</h2>
             </div>
             <button onClick={() => setShowForm(!showForm)} className="btn-primary">
               {showForm ? 'Cancelar' : '+ Nueva Pregunta'}

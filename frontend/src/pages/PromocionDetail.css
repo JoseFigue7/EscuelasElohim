@@ -80,6 +80,37 @@
   letter-spacing: -0.01em;
 }
 
+.tema-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.examen-badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.examen-badge.aprobado {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.examen-badge.reprobado {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.examen-badge.pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .toggle-icon {
   font-size: 1.25rem;
   color: var(--primary-color);

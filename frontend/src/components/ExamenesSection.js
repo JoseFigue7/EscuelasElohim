@@ -135,8 +135,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
         <form onSubmit={handleSubmit} className="new-form" style={{marginBottom: '30px'}}>
           <div className="section-header" style={{marginBottom: '20px'}}>
             <h3>
-              {editingExamen.examen ? 'Editar Examen' : 'Crear Examen'} - 
-              Tema {editingExamen.tema.numero_tema}: {editingExamen.tema.titulo}
+              {editingExamen.examen ? 'Editar Examen' : 'Crear Examen'} - {editingExamen.tema.titulo}
             </h3>
             <button type="button" onClick={resetForm} className="btn-secondary">
               Cancelar
@@ -257,7 +256,7 @@ const ExamenesSection = ({ temas, onRefresh }) => {
             <div key={tema.id} className="examen-item-card">
               <div className="examen-item-header">
                 <div className="examen-item-title">
-                  <h3>Tema {tema.numero_tema}: {tema.titulo}</h3>
+                  <h3>{tema.titulo}</h3>
                 </div>
                 <button
                   onClick={() => handleEdit(tema, examen)}

@@ -4,6 +4,26 @@ import { temaService, materialService, unwrapList } from '../services/api';
 import MaterialContent from '../components/MaterialContent';
 import './PromocionDetail.css';
 
+const formatExamenBadge = (tema) => {
+  const estado = tema.examen_estado;
+  if (!estado || estado === 'sin_examen') {
+    return null;
+  }
+  if (estado === 'no_presentado') {
+    return { label: 'Examen no presentado', className: 'examen-badge pendiente' };
+  }
+  const pct = tema.examen_porcentaje != null
+    ? `${Number(tema.examen_porcentaje).toFixed(0)}%`
+    : '';
+  if (estado === 'aprobado') {
+    return { label: pct ? `Nota: ${pct}` : 'Aprobado', className: 'examen-badge aprobado' };
+  }
+  if (estado === 'reprobado') {
+    return { label: pct ? `Nota: ${pct}` : 'Reprobado', className: 'examen-badge reprobado' };
+  }
+  return null;
+};
+
 const PromocionDetail = () => {
   const { id } = useParams();
   const [temas, setTemas] = useState([]);
@@ -113,15 +133,20 @@ const PromocionDetail = () => {
       <h1>Temas y Materiales</h1>
 
       <div className="temas-list">
-        {temas.map((tema) => (
+        {temas.map((tema) => {
+          const badge = formatExamenBadge(tema);
+          return (
           <div key={tema.id} className="tema-item">
             <div
               className="tema-header"
               onClick={() => handleTemaClick(tema.id)}
             >
-              <h3>
-                Tema {tema.numero_tema}: {tema.titulo}
-              </h3>
+              <div className="tema-header-left">
+                <h3>{tema.titulo}</h3>
+                {badge && (
+                  <span className={badge.className}>{badge.label}</span>
+                )}
+              </div>
               <span className="toggle-icon">
                 {selectedTema?.id === tema.id ? '▼' : '▶'}
               </span>
@@ -167,7 +192,8 @@ const PromocionDetail = () => {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {temas.length === 0 && (
@@ -180,6 +206,3 @@ const PromocionDetail = () => {
 };
 
 export default PromocionDetail;
-
-
-

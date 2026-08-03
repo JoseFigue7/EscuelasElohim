@@ -491,7 +491,7 @@ const TemaDetail = () => {
 
       <div className="tema-header-section">
         <div>
-          <h1>Tema {tema.numero_tema}: {tema.titulo}</h1>
+          <h1>{tema.titulo}</h1>
           {promocion && (
             <p className="curso-info">
               Curso: <strong>{promocion.curso_nombre || tema.curso_nombre}</strong> - 

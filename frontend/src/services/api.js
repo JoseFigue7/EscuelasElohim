@@ -171,13 +171,15 @@ export const promocionService = {
 
 // Servicio de Temas
 export const temaService = {
-  getAll: (promocionId) => 
+  getAll: (promocionId) =>
     api.get('/temas/', { params: promocionId ? { promocion: promocionId } : {} }),
   getById: (id) => api.get(`/temas/${id}/`),
   create: (data) => api.post('/temas/', data),
   update: (id, data) => api.put(`/temas/${id}/`, data),
   patch: (id, data) => api.patch(`/temas/${id}/`, data),
   delete: (id) => api.delete(`/temas/${id}/`),
+  reordenar: (cursoId, ordenIds) =>
+    api.post('/temas/reordenar/', { curso: cursoId, orden: ordenIds }),
 };
 
 // Servicio de Materiales
