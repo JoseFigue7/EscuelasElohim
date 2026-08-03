@@ -22,6 +22,7 @@ from .serializers import (
     PreguntaSerializer, PreguntaDetailSerializer, ExamenSerializer, ExamenListSerializer,
     RespuestaExamenSerializer, RecuperacionExamenSerializer, RecuperacionExamenAlumnoSerializer,
     RecuperacionExamenBulkCreateSerializer,
+    RecuperacionExamenPromocionBulkSerializer,
     CalificacionExamenSerializer, CalificacionExamenDetalleSerializer, PromedioPromocionSerializer, DiplomaSerializer,
     RespuestaRevisionSerializer
 )
@@ -807,6 +808,45 @@ class RecuperacionExamenViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Solo los docentes pueden crear recuperaciones')
         serializer.save()
+
+    @action(detail=False, methods=['post'], url_path='crear-por-promocion')
+    def crear_por_promocion(self, request):
+        """
+        Crea recuperaciones para varios temas de una promoción.
+        Incluye automáticamente a quienes no presentaron o reprobaron cada examen.
+        """
+        user = request.user
+        if not (user.es_docente or user.is_superuser):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Solo los docentes pueden crear recuperaciones')
+
+        serializer = RecuperacionExamenPromocionBulkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        recuperaciones = serializer.save()
+        resultado = getattr(serializer, '_resultado', {})
+
+        response_serializer = RecuperacionExamenSerializer(recuperaciones, many=True)
+        response_data = {
+            'recuperaciones': response_serializer.data,
+            'creadas': resultado.get('creadas', len(recuperaciones)),
+            'detalle': resultado.get('detalle', []),
+            'temas_sin_examen': resultado.get('temas_sin_examen', []),
+            'temas_sin_elegibles': resultado.get('temas_sin_elegibles', []),
+        }
+
+        avisos = []
+        if response_data['temas_sin_examen']:
+            avisos.append(
+                f"Sin examen: {', '.join(response_data['temas_sin_examen'])}"
+            )
+        if response_data['temas_sin_elegibles']:
+            avisos.append(
+                f"Sin elegibles: {', '.join(response_data['temas_sin_elegibles'])}"
+            )
+        if avisos:
+            response_data['advertencia'] = ' | '.join(avisos)
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['get'], url_path='mis-disponibles')
     def mis_disponibles(self, request):

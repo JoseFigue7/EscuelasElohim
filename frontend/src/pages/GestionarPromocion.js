@@ -8,11 +8,19 @@ import {
   promedioService,
   diplomaService,
   promocionService,
+  recuperacionService,
   unwrapList,
 } from '../services/api';
 import PreguntasSection from '../components/PreguntasSection';
 import ExamenesSection from '../components/ExamenesSection';
 import './GestionarPromocion.css';
+
+const toServerDateTime = (localValue) => {
+  if (!localValue) return localValue;
+  const date = new Date(localValue);
+  if (Number.isNaN(date.getTime())) return localValue;
+  return date.toISOString();
+};
 
 const GestionarPromocion = () => {
   const { id } = useParams();
@@ -48,6 +56,13 @@ const GestionarPromocion = () => {
   const [alumnoSearch, setAlumnoSearch] = useState('');
   const [inscripcionAlumnoSearch, setInscripcionAlumnoSearch] = useState('');
   const [temaSearch, setTemaSearch] = useState('');
+  const [showRecuperacionMasiva, setShowRecuperacionMasiva] = useState(false);
+  const [recuperacionMasivaForm, setRecuperacionMasivaForm] = useState({
+    temas: [],
+    fecha_inicio: '',
+    fecha_fin: '',
+  });
+  const [recuperacionMasivaLoading, setRecuperacionMasivaLoading] = useState(false);
 
   const resolveDiplomaUrl = (archivo) => {
     if (!archivo) return null;
@@ -160,6 +175,93 @@ const GestionarPromocion = () => {
         'Error al reordenar temas: ' +
           (err.response?.data?.error || err.response?.data?.detail || err.message)
       );
+    }
+  };
+
+  const openRecuperacionMasiva = () => {
+    setRecuperacionMasivaForm({
+      temas: temas.map((t) => t.id),
+      fecha_inicio: '',
+      fecha_fin: '',
+    });
+    setShowRecuperacionMasiva(true);
+  };
+
+  const toggleTemaRecuperacion = (temaId) => {
+    setRecuperacionMasivaForm((prev) => {
+      const temasIds = [...prev.temas];
+      const index = temasIds.indexOf(temaId);
+      if (index > -1) {
+        temasIds.splice(index, 1);
+      } else {
+        temasIds.push(temaId);
+      }
+      return { ...prev, temas: temasIds };
+    });
+  };
+
+  const handleCreateRecuperacionMasiva = async (e) => {
+    e.preventDefault();
+    if (!id) return;
+    if (recuperacionMasivaForm.temas.length === 0) {
+      alert('Selecciona al menos un tema');
+      return;
+    }
+    if (!recuperacionMasivaForm.fecha_inicio || !recuperacionMasivaForm.fecha_fin) {
+      alert('Indica fecha de inicio y fin');
+      return;
+    }
+
+    setRecuperacionMasivaLoading(true);
+    try {
+      const response = await recuperacionService.crearPorPromocion({
+        promocion: Number(id),
+        temas: recuperacionMasivaForm.temas,
+        fecha_inicio: toServerDateTime(recuperacionMasivaForm.fecha_inicio),
+        fecha_fin: toServerDateTime(recuperacionMasivaForm.fecha_fin),
+        activa: true,
+      });
+
+      const data = response.data || {};
+      let mensaje = `Se crearon ${data.creadas || 0} recuperaciones.`;
+      if (Array.isArray(data.detalle) && data.detalle.length > 0) {
+        const resumen = data.detalle
+          .filter((d) => d.creadas > 0)
+          .map((d) => `• ${d.tema_titulo}: ${d.creadas} alumno(s)`)
+          .join('\n');
+        if (resumen) mensaje += `\n\n${resumen}`;
+      }
+      if (data.advertencia) {
+        mensaje += `\n\n${data.advertencia}`;
+      }
+
+      setShowRecuperacionMasiva(false);
+      setRecuperacionMasivaForm({ temas: [], fecha_inicio: '', fecha_fin: '' });
+      alert(mensaje);
+    } catch (err) {
+      const data = err.response?.data;
+      let msg = err.message;
+      if (typeof data === 'string') {
+        msg = data;
+      } else if (data?.non_field_errors) {
+        msg = Array.isArray(data.non_field_errors)
+          ? data.non_field_errors.join('\n')
+          : String(data.non_field_errors);
+      } else if (data?.detail) {
+        msg = data.detail;
+      } else if (data?.error) {
+        msg = data.error;
+      } else if (data && typeof data === 'object') {
+        msg = Object.entries(data)
+          .map(([key, value]) => {
+            const text = Array.isArray(value) ? value.join(' ') : String(value);
+            return key === 'non_field_errors' ? text : `${key}: ${text}`;
+          })
+          .join('\n');
+      }
+      alert('Error al crear recuperaciones: ' + msg);
+    } finally {
+      setRecuperacionMasivaLoading(false);
     }
   };
 
@@ -617,11 +719,139 @@ const GestionarPromocion = () => {
                 ▶️ Reactivar Promoción
               </button>
             )}
+          <button onClick={openRecuperacionMasiva} className="btn-secondary">
+            🔄 Habilitar exámenes de recuperación
+          </button>
           <button onClick={handleEditPromocion} className="btn-primary">
             ✏️ Editar Promoción
           </button>
         </div>
       </div>
+
+      {showRecuperacionMasiva && (
+        <div className="section-card recuperacion-masiva-card">
+          <div className="section-header">
+            <div>
+              <h2>🔄 Habilitar exámenes de recuperación</h2>
+              <p className="info-text" style={{ margin: '8px 0 0' }}>
+                Selecciona los temas. Se asignará recuperación automáticamente a quienes
+                <strong> no presentaron</strong> o <strong> reprobaron</strong> el examen
+                (no a quienes ya aprobaron).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRecuperacionMasiva(false)}
+              className="btn-close"
+            >
+              ×
+            </button>
+          </div>
+          <form onSubmit={handleCreateRecuperacionMasiva} className="promocion-edit-form">
+            <div className="form-group">
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setRecuperacionMasivaForm((prev) => ({
+                      ...prev,
+                      temas: temas.map((t) => t.id),
+                    }))
+                  }
+                >
+                  Seleccionar todos
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setRecuperacionMasivaForm((prev) => ({ ...prev, temas: [] }))
+                  }
+                >
+                  Quitar todos
+                </button>
+                <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+                  {recuperacionMasivaForm.temas.length} tema
+                  {recuperacionMasivaForm.temas.length !== 1 ? 's' : ''} seleccionado
+                  {recuperacionMasivaForm.temas.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="temas-recuperacion-list">
+                {temas.length === 0 ? (
+                  <p className="info-text">No hay temas en esta promoción.</p>
+                ) : (
+                  temas.map((tema) => {
+                    const checked = recuperacionMasivaForm.temas.includes(tema.id);
+                    return (
+                      <label
+                        key={tema.id}
+                        className={`tema-recuperacion-option ${checked ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleTemaRecuperacion(tema.id)}
+                        />
+                        <span>{tema.titulo}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <div className="form-group">
+                <label>Fecha y hora de inicio *</label>
+                <input
+                  type="datetime-local"
+                  value={recuperacionMasivaForm.fecha_inicio}
+                  onChange={(e) =>
+                    setRecuperacionMasivaForm({
+                      ...recuperacionMasivaForm,
+                      fecha_inicio: e.target.value,
+                    })
+                  }
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Fecha y hora de fin *</label>
+                <input
+                  type="datetime-local"
+                  value={recuperacionMasivaForm.fecha_fin}
+                  onChange={(e) =>
+                    setRecuperacionMasivaForm({
+                      ...recuperacionMasivaForm,
+                      fecha_fin: e.target.value,
+                    })
+                  }
+                  required
+                />
+              </div>
+            </div>
+            <div className="form-actions" style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={recuperacionMasivaLoading || recuperacionMasivaForm.temas.length === 0}
+              >
+                {recuperacionMasivaLoading
+                  ? 'Creando...'
+                  : 'Crear recuperaciones'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowRecuperacionMasiva(false)}
+                disabled={recuperacionMasivaLoading}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {showEditPromocion && (
         <div className="section-card">

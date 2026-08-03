@@ -277,6 +277,7 @@ export const recuperacionService = {
   },
   getById: (id) => api.get(`/recuperaciones/${id}/`),
   create: (data) => api.post('/recuperaciones/', data),
+  crearPorPromocion: (data) => api.post('/recuperaciones/crear-por-promocion/', data),
   update: (id, data) => api.put(`/recuperaciones/${id}/`, data),
   delete: (id) => api.delete(`/recuperaciones/${id}/`),
   contarPorInscripcion: (inscripcionId) => 

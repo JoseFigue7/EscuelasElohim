@@ -577,6 +577,136 @@ class RecuperacionExamenBulkCreateSerializer(serializers.Serializer):
         return recuperaciones
 
 
+class RecuperacionExamenPromocionBulkSerializer(serializers.Serializer):
+    """Crea recuperaciones para varios temas de una promoción (elegibles automáticos)."""
+    DATETIME_INPUT_FORMATS = RecuperacionExamenBulkCreateSerializer.DATETIME_INPUT_FORMATS
+
+    promocion = serializers.PrimaryKeyRelatedField(queryset=Promocion.objects.all())
+    temas = serializers.ListField(
+        child=serializers.PrimaryKeyRelatedField(queryset=Tema.objects.all()),
+        min_length=1,
+        help_text='Lista de IDs de temas',
+    )
+    fecha_inicio = serializers.DateTimeField(input_formats=DATETIME_INPUT_FORMATS)
+    fecha_fin = serializers.DateTimeField(input_formats=DATETIME_INPUT_FORMATS)
+    activa = serializers.BooleanField(default=True)
+
+    def validate_temas(self, value):
+        seen = set()
+        unique = []
+        for tema in value:
+            if tema.id not in seen:
+                seen.add(tema.id)
+                unique.append(tema)
+        return unique
+
+    def validate(self, attrs):
+        if attrs['fecha_inicio'] >= attrs['fecha_fin']:
+            raise serializers.ValidationError(
+                "La fecha de fin debe ser posterior a la fecha de inicio"
+            )
+
+        promocion = attrs['promocion']
+        curso_id = promocion.curso_id
+        temas_invalidos = [
+            t.titulo for t in attrs['temas'] if t.curso_id != curso_id
+        ]
+        if temas_invalidos:
+            raise serializers.ValidationError(
+                "Todos los temas deben pertenecer al curso de la promoción. "
+                f"No válidos: {', '.join(temas_invalidos)}"
+            )
+        return attrs
+
+    def create(self, validated_data):
+        promocion = validated_data['promocion']
+        temas = validated_data['temas']
+        fecha_inicio = validated_data['fecha_inicio']
+        fecha_fin = validated_data['fecha_fin']
+        activa = validated_data.get('activa', True)
+
+        inscripciones = list(
+            Inscripcion.objects.filter(promocion=promocion, activa=True)
+            .select_related('alumno')
+        )
+
+        detalle = []
+        recuperaciones = []
+        total_creadas = 0
+        temas_sin_examen = []
+        temas_sin_elegibles = []
+
+        for tema in temas:
+            try:
+                examen = tema.examen
+            except Examen.DoesNotExist:
+                temas_sin_examen.append(tema.titulo)
+                continue
+
+            elegibles = [
+                insc
+                for insc in inscripciones
+                if RecuperacionExamenBulkCreateSerializer._inscripcion_puede_recuperacion(
+                    examen, insc
+                )
+            ]
+
+            if not elegibles:
+                temas_sin_elegibles.append(tema.titulo)
+                detalle.append({
+                    'tema_id': tema.id,
+                    'tema_titulo': tema.titulo,
+                    'examen_id': examen.id,
+                    'creadas': 0,
+                    'elegibles': 0,
+                })
+                continue
+
+            creadas_tema = []
+            for insc in elegibles:
+                rec = RecuperacionExamen.objects.create(
+                    examen=examen,
+                    inscripcion=insc,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    activa=activa,
+                )
+                creadas_tema.append(rec)
+                recuperaciones.append(rec)
+
+            total_creadas += len(creadas_tema)
+            detalle.append({
+                'tema_id': tema.id,
+                'tema_titulo': tema.titulo,
+                'examen_id': examen.id,
+                'creadas': len(creadas_tema),
+                'elegibles': len(elegibles),
+            })
+
+        if total_creadas == 0:
+            partes = []
+            if temas_sin_examen:
+                partes.append(f"Sin examen: {', '.join(temas_sin_examen)}")
+            if temas_sin_elegibles:
+                partes.append(
+                    f"Sin estudiantes elegibles (todos aprobaron o no hay inscritos): "
+                    f"{', '.join(temas_sin_elegibles)}"
+                )
+            raise serializers.ValidationError(
+                "No se creó ninguna recuperación. "
+                + (' '.join(partes) if partes else "Verifica la selección.")
+            )
+
+        self._resultado = {
+            'creadas': total_creadas,
+            'detalle': detalle,
+            'temas_sin_examen': temas_sin_examen,
+            'temas_sin_elegibles': temas_sin_elegibles,
+            'recuperaciones': recuperaciones,
+        }
+        return recuperaciones
+
+
 class CalificacionExamenSerializer(serializers.ModelSerializer):
     examen_titulo = serializers.CharField(source='examen.titulo', read_only=True)
     tema_titulo = serializers.CharField(source='examen.tema.titulo', read_only=True)
