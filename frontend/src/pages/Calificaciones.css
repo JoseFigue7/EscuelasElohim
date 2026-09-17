@@ -191,6 +191,135 @@
   font-size: 14px;
 }
 
+.calificaciones-intro {
+  color: var(--text-secondary);
+  margin: -20px 0 32px;
+  max-width: 720px;
+  line-height: 1.5;
+}
+
+.cursos-notas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.curso-notas-card {
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  box-shadow: var(--shadow-md);
+}
+
+.curso-notas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.curso-notas-header h2 {
+  margin: 0 0 6px;
+  font-size: 1.4rem;
+}
+
+.curso-notas-header .curso-name {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.promedio-badge {
+  min-width: 140px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.promedio-badge.aprobado {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.promedio-badge.reprobado {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.promedio-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.promedio-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.promedio-estado {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.notas-table-wrapper {
+  overflow-x: auto;
+}
+
+.notas-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.notas-table th,
+.notas-table td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.notas-table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+}
+
+.nota-pct {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.nota-pct.ok { color: #166534; }
+.nota-pct.fail { color: #991b1b; }
+.nota-pct.pendiente { color: #92400e; }
+
+.badge-rec {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.curso-notas-foot {
+  margin: 14px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 768px) {
   .calificaciones h1 {
     font-size: 2rem;
@@ -202,5 +331,9 @@
   
   .calificacion-card {
     padding: 24px;
+  }
+
+  .curso-notas-card {
+    padding: 20px;
   }
 }

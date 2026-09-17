@@ -1307,8 +1307,9 @@ const GestionarPromocion = () => {
             </div>
           </div>
           <p className="info-text">
-            Calcula los promedios finales de todos los estudiantes. Los que tengan promedio &ge; 80%
-            serán considerados aprobados y podrán recibir su diploma.
+            El promedio se calcula con <strong>todos los exámenes del curso</strong>.
+            Si un alumno no presentó un examen, esa nota cuenta como <strong>0%</strong>.
+            Quienes tengan promedio ≥ 80% se consideran aprobados y pueden recibir diploma.
           </p>
           {diplomaWarnings.length > 0 && (
             <div className="info-text" style={{ color: '#9c6b00' }}>

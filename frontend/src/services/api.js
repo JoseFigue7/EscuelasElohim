@@ -308,6 +308,7 @@ export const promedioService = {
   getById: (id) => api.get(`/promedios/${id}/`),
   calcularPromedios: (promocionId) => 
     api.post('/promedios/calcular_promedios/', { promocion_id: promocionId }),
+  getMisNotas: () => api.get('/promedios/mis-notas/'),
 };
 
 // Servicio de Diplomas

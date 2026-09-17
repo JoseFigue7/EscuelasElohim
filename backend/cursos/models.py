@@ -428,26 +428,84 @@ class PromedioPromocion(models.Model):
         return f"{self.inscripcion.alumno} - {self.inscripcion.promocion} - {self.promedio_final}%"
     
     def calcular_promedio(self):
-        """Calcula el promedio final de todos los exámenes de la promoción"""
-        # Obtener todos los exámenes del curso de la promoción
-        examenes = Examen.objects.filter(tema__curso=self.inscripcion.promocion.curso)
-        
-        calificaciones_finales = []
-        for examen in examenes:
-            calificacion = CalificacionExamen.get_calificacion_efectiva(examen, self.inscripcion)
-            if calificacion:
-                calificaciones_finales.append(calificacion)
-        
-        if calificaciones_finales:
-            total_porcentajes = sum(float(cal.porcentaje) for cal in calificaciones_finales)
-            self.promedio_final = Decimal(total_porcentajes / len(calificaciones_finales))
-        else:
+        """
+        Promedio final sobre TODOS los exámenes del curso de la promoción.
+        Si el alumno no presentó un examen, esa nota cuenta como 0.
+        """
+        examenes = list(
+            Examen.objects.filter(tema__curso=self.inscripcion.promocion.curso)
+            .select_related('tema')
+            .order_by('tema__numero_tema', 'id')
+        )
+        total_examenes = len(examenes)
+
+        if total_examenes == 0:
             self.promedio_final = Decimal(0)
-        
-        # Aprobado si promedio >= 80%
+            self.aprobado = False
+            self.save()
+            return
+
+        suma = 0.0
+        for examen in examenes:
+            calificacion = CalificacionExamen.get_calificacion_efectiva(
+                examen, self.inscripcion
+            )
+            suma += float(calificacion.porcentaje) if calificacion else 0.0
+
+        self.promedio_final = Decimal(suma / total_examenes)
         self.aprobado = float(self.promedio_final) >= 80.0
         self.save()
-    
+
+    def obtener_detalle_notas(self):
+        """
+        Lista de notas por examen del curso (0 si no presentado) + promedio.
+        """
+        examenes = list(
+            Examen.objects.filter(tema__curso=self.inscripcion.promocion.curso)
+            .select_related('tema')
+            .order_by('tema__numero_tema', 'id')
+        )
+        notas = []
+        suma = 0.0
+        for examen in examenes:
+            tema = examen.tema
+            cal = CalificacionExamen.get_calificacion_efectiva(examen, self.inscripcion)
+            if cal is None:
+                porcentaje = 0.0
+                estado = 'no_presentado'
+                calificacion_id = None
+                es_recuperacion = False
+            else:
+                porcentaje = float(cal.porcentaje)
+                estado = 'aprobado' if cal.aprobado else 'reprobado'
+                calificacion_id = cal.id
+                es_recuperacion = cal.es_recuperacion
+            suma += porcentaje
+            notas.append({
+                'tema_id': tema.id,
+                'tema_titulo': tema.titulo,
+                'numero_tema': tema.numero_tema,
+                'examen_id': examen.id,
+                'examen_titulo': examen.titulo or tema.titulo,
+                'porcentaje': round(porcentaje, 2),
+                'estado': estado,
+                'calificacion_id': calificacion_id,
+                'es_recuperacion': es_recuperacion,
+                'puede_revisar': bool(cal and cal.puede_revisar_respuestas()),
+            })
+
+        total = len(examenes)
+        promedio = round(suma / total, 2) if total else 0.0
+        return {
+            'promocion_id': self.inscripcion.promocion_id,
+            'promocion_nombre': self.inscripcion.promocion.nombre,
+            'curso_nombre': self.inscripcion.promocion.curso.nombre,
+            'promedio_final': promedio,
+            'aprobado': promedio >= 80.0,
+            'total_examenes': total,
+            'notas': notas,
+        }
+
     def contar_recuperaciones_totales(self):
         """Cuenta el total de recuperaciones que ha hecho este estudiante en la promoción"""
         # La clase RecuperacionExamen ya está definida antes de PromedioPromocion, así que podemos usarla directamente

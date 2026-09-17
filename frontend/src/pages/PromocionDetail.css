@@ -111,6 +111,36 @@
   color: #92400e;
 }
 
+.promedio-resumen {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 28px;
+  font-size: 1.05rem;
+}
+
+.promedio-resumen.ok {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.promedio-resumen.fail {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.promedio-resumen .link-notas {
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+}
+
 .toggle-icon {
   font-size: 1.25rem;
   color: var(--primary-color);

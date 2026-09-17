@@ -1,39 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation, Link } from 'react-router-dom';
-import { calificacionService, unwrapList } from '../services/api';
+import { Link } from 'react-router-dom';
+import { promedioService } from '../services/api';
 import './Calificaciones.css';
 
 const Calificaciones = () => {
-  const location = useLocation();
-  const examenId = location.state?.examenId;
-  const [calificaciones, setCalificaciones] = useState([]);
+  const [cursos, setCursos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadCalificaciones = useCallback(async () => {
+  const loadNotas = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await calificacionService.getAll(examenId);
-      setCalificaciones(unwrapList(response));
+      const response = await promedioService.getMisNotas();
+      setCursos(Array.isArray(response.data) ? response.data : []);
       setError('');
     } catch (err) {
-      setError('Error al cargar las calificaciones');
+      setError('Error al cargar tus notas y promedio');
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [examenId]);
+  }, []);
 
   useEffect(() => {
-    loadCalificaciones();
-  }, [loadCalificaciones]);
-
-  const getCalificacionClass = (calificacion) => {
-    if (calificacion?.aprobado === true) return 'aprobado';
-    const porcentaje = parseFloat(calificacion?.porcentaje);
-    if (Number.isFinite(porcentaje) && porcentaje >= 50) return 'regular';
-    return 'reprobado';
-  };
+    loadNotas();
+  }, [loadNotas]);
 
   if (loading) {
     return <div className="loading">Cargando calificaciones...</div>;
@@ -46,69 +37,101 @@ const Calificaciones = () => {
   return (
     <div className="calificaciones">
       <h1>Mis Calificaciones</h1>
+      <p className="calificaciones-intro">
+        Promedio sobre todos los exámenes del curso. Si no presentaste un examen, cuenta como 0%.
+        El curso se aprueba con promedio ≥ 80%.
+      </p>
 
-      {calificaciones.length === 0 ? (
+      {cursos.length === 0 ? (
         <div className="empty-state">
-          <p>No tienes calificaciones registradas aún.</p>
+          <p>No estás inscrito en ninguna promoción activa.</p>
         </div>
       ) : (
-        <div className="calificaciones-list">
-          {calificaciones.map((calificacion) => (
-            <div
-              key={calificacion.id}
-              className={`calificacion-card ${getCalificacionClass(calificacion)}`}
-            >
-              <h3>{calificacion.examen_titulo}</h3>
-              <div className="calificacion-meta">
-                <div className="meta-item">
-                  <span className="label">Promoción:</span>
-                  <span className="value">
-                    {calificacion.promocion_nombre || 'Sin promoción'}
-                  </span>
+        <div className="cursos-notas-list">
+          {cursos.map((curso) => {
+            const promedio = Number(curso.promedio_final) || 0;
+            const aprobado = Boolean(curso.aprobado);
+            return (
+              <section key={curso.promocion_id} className="curso-notas-card">
+                <div className="curso-notas-header">
+                  <div>
+                    <h2>{curso.promocion_nombre}</h2>
+                    <p className="curso-name">{curso.curso_nombre}</p>
+                  </div>
+                  <div className={`promedio-badge ${aprobado ? 'aprobado' : 'reprobado'}`}>
+                    <span className="promedio-label">Promedio</span>
+                    <span className="promedio-value">{promedio.toFixed(2)}%</span>
+                    <span className="promedio-estado">
+                      {aprobado ? 'Aprobado' : 'Reprobado'}
+                    </span>
+                  </div>
                 </div>
-                <div className="meta-item">
-                  <span className="label">Tema:</span>
-                  <span className="value">
-                    {calificacion.tema_titulo || 'Sin tema'}
-                  </span>
+
+                <div className="notas-table-wrapper">
+                  <table className="notas-table">
+                    <thead>
+                      <tr>
+                        <th>Tema / Examen</th>
+                        <th>Nota</th>
+                        <th>Estado</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(curso.notas || []).map((nota) => (
+                        <tr key={`${curso.promocion_id}-${nota.examen_id}`}>
+                          <td>
+                            <strong>{nota.tema_titulo}</strong>
+                            {nota.es_recuperacion && (
+                              <span className="badge-rec">Recuperación</span>
+                            )}
+                          </td>
+                          <td>
+                            <span
+                              className={`nota-pct ${
+                                nota.estado === 'aprobado'
+                                  ? 'ok'
+                                  : nota.estado === 'no_presentado'
+                                  ? 'pendiente'
+                                  : 'fail'
+                              }`}
+                            >
+                              {Number(nota.porcentaje).toFixed(0)}%
+                            </span>
+                          </td>
+                          <td>
+                            {nota.estado === 'no_presentado' && 'No presentado'}
+                            {nota.estado === 'aprobado' && 'Aprobado'}
+                            {nota.estado === 'reprobado' && 'Reprobado'}
+                          </td>
+                          <td>
+                            {nota.puede_revisar && nota.calificacion_id ? (
+                              <Link
+                                to={`/calificaciones/${nota.calificacion_id}/revisar`}
+                                className="btn-revisar-examen"
+                              >
+                                Ver incorrectas
+                              </Link>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {(!curso.notas || curso.notas.length === 0) && (
+                        <tr>
+                          <td colSpan={4}>Este curso aún no tiene exámenes.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-              <div className="calificacion-details">
-                <div className="puntaje">
-                  <span className="label">Puntaje:</span>
-                  <span className="value">
-                    {calificacion.puntaje_obtenido} / {calificacion.puntaje_total}
-                  </span>
-                </div>
-                <div className="porcentaje">
-                  <span className="label">Calificación:</span>
-                  <span className="value">
-                    {parseFloat(calificacion.porcentaje).toFixed(2)}%
-                  </span>
-                </div>
-                <div className="fecha">
-                  <span className="label">Fecha:</span>
-                  <span className="value">
-                    {new Date(calificacion.fecha_completado).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              {calificacion.puede_revisar && (
-                <Link
-                  to={`/calificaciones/${calificacion.id}/revisar`}
-                  className="btn-revisar-examen"
-                >
-                  Ver respuestas incorrectas
-                </Link>
-              )}
-              {!calificacion.puede_revisar && calificacion.examen_fecha_fin && (
-                <p className="revisar-pendiente">
-                  Podrás revisar tus respuestas incorrectas después del{' '}
-                  {new Date(calificacion.examen_fecha_fin).toLocaleString()}
+                <p className="curso-notas-foot">
+                  {curso.total_examenes} examen{curso.total_examenes !== 1 ? 'es' : ''} en el curso
                 </p>
-              )}
-            </div>
-          ))}
+              </section>
+            );
+          })}
         </div>
       )}
     </div>
@@ -116,6 +139,3 @@ const Calificaciones = () => {
 };
 
 export default Calificaciones;
-
-
-

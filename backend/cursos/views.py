@@ -130,22 +130,23 @@ class PromocionViewSet(viewsets.ModelViewSet):
                 try:
                     examen = tema.examen
                 except Examen.DoesNotExist:
+                    # Tema sin examen: celda vacía, no entra al promedio
                     row.append(None)
                     continue
                 calificacion = CalificacionExamen.get_calificacion_efectiva(examen, inscripcion)
                 if calificacion is None:
-                    row.append(None)
+                    porcentaje = 0.0
                 else:
                     porcentaje = round(float(calificacion.porcentaje), 2)
-                    row.append(porcentaje)
-                    porcentajes.append(porcentaje)
+                row.append(porcentaje)
+                porcentajes.append(porcentaje)
 
             if porcentajes:
                 promedio = round(sum(porcentajes) / len(porcentajes), 2)
                 estado = 'Aprobado' if promedio >= 80 else 'Reprobado'
             else:
-                promedio = None
-                estado = ''
+                promedio = 0
+                estado = 'Reprobado' if temas else ''
 
             row.extend([promedio, estado])
             ws.append(row)
@@ -1055,6 +1056,32 @@ class PromedioPromocionViewSet(viewsets.ReadOnlyModelViewSet):
             promedio.calcular_promedio()
         
         return Response({'mensaje': 'Promedios calculados correctamente'})
+
+    @action(detail=False, methods=['get'], url_path='mis-notas')
+    def mis_notas(self, request):
+        """
+        Para el alumno: promedio y todas las notas por promoción/curso inscrito.
+        Los exámenes no presentados cuentan como 0.
+        """
+        user = request.user
+        if not user.es_alumno:
+            return Response(
+                {'error': 'Solo los alumnos pueden consultar sus notas'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        inscripciones = Inscripcion.objects.filter(
+            alumno=user,
+            activa=True,
+        ).select_related('promocion', 'promocion__curso').order_by('-promocion__fecha_inicio')
+
+        resultado = []
+        for inscripcion in inscripciones:
+            promedio, _ = PromedioPromocion.objects.get_or_create(inscripcion=inscripcion)
+            promedio.calcular_promedio()
+            resultado.append(promedio.obtener_detalle_notas())
+
+        return Response(resultado)
 
 
 def _normalize_course_name(name):

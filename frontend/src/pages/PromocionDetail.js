@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { temaService, materialService, unwrapList } from '../services/api';
+import { temaService, materialService, promedioService, unwrapList } from '../services/api';
 import MaterialContent from '../components/MaterialContent';
 import './PromocionDetail.css';
 
@@ -10,7 +10,7 @@ const formatExamenBadge = (tema) => {
     return null;
   }
   if (estado === 'no_presentado') {
-    return { label: 'Examen no presentado', className: 'examen-badge pendiente' };
+    return { label: 'Examen no presentado (0%)', className: 'examen-badge pendiente' };
   }
   const pct = tema.examen_porcentaje != null
     ? `${Number(tema.examen_porcentaje).toFixed(0)}%`
@@ -27,6 +27,7 @@ const formatExamenBadge = (tema) => {
 const PromocionDetail = () => {
   const { id } = useParams();
   const [temas, setTemas] = useState([]);
+  const [promedioInfo, setPromedioInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedTema, setSelectedTema] = useState(null);
@@ -34,8 +35,15 @@ const PromocionDetail = () => {
   const loadTemas = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await temaService.getAll(id);
-      setTemas(unwrapList(response));
+      const [temasResponse, notasResponse] = await Promise.all([
+        temaService.getAll(id),
+        promedioService.getMisNotas().catch(() => ({ data: [] })),
+      ]);
+      setTemas(unwrapList(temasResponse));
+      const detalle = (Array.isArray(notasResponse.data) ? notasResponse.data : []).find(
+        (item) => String(item.promocion_id) === String(id)
+      );
+      setPromedioInfo(detalle || null);
       setError('');
     } catch (err) {
       setError('Error al cargar los temas');
@@ -131,6 +139,20 @@ const PromocionDetail = () => {
     <div className="promocion-detail">
       <Link to="/" className="back-link">← Volver a mis cursos</Link>
       <h1>Temas y Materiales</h1>
+
+      {promedioInfo && (
+        <div className={`promedio-resumen ${promedioInfo.aprobado ? 'ok' : 'fail'}`}>
+          <div>
+            <strong>Tu promedio del curso:</strong>{' '}
+            {Number(promedioInfo.promedio_final).toFixed(2)}%
+            {' · '}
+            {promedioInfo.aprobado ? 'Aprobado' : 'Aún no alcanza 80%'}
+          </div>
+          <Link to="/calificaciones" className="link-notas">
+            Ver todas mis notas →
+          </Link>
+        </div>
+      )}
 
       <div className="temas-list">
         {temas.map((tema) => {
