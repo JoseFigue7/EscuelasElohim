@@ -70,7 +70,10 @@ const GestionarPromocion = () => {
       return archivo;
     }
     const baseUrl = API_URL.replace(/\/api\/?$/, '');
-    return `${baseUrl}${archivo.startsWith('/') ? '' : '/'}${archivo}`;
+    if (archivo.startsWith('/media/') || archivo.startsWith('/')) {
+      return `${baseUrl}${archivo}`;
+    }
+    return `${baseUrl}/media/${archivo}`;
   };
 
   const safeFilenamePart = (value) => {
@@ -381,12 +384,12 @@ const GestionarPromocion = () => {
         const diplomasGenerados = await generarDiplomasPromocion({ showAlert: false });
         let updatedDiplomas = Array.isArray(diplomasGenerados) ? diplomasGenerados : null;
         const hasInscripcionData = Array.isArray(updatedDiplomas)
-          ? updatedDiplomas.some((item) => item?.inscripcion || item?.inscripcion?.id)
+          ? updatedDiplomas.some((item) => item?.inscripcion != null)
           : false;
         if (!hasInscripcionData) {
           updatedDiplomas = await loadDiplomas();
         }
-        const updatedDiploma = updatedDiplomas.find(
+        const updatedDiploma = (updatedDiplomas || []).find(
           (item) => String(item?.inscripcion?.id ?? item?.inscripcion) === String(inscripcionId)
         );
         archivoUrl = resolveDiplomaUrl(updatedDiploma?.archivo);
@@ -395,17 +398,19 @@ const GestionarPromocion = () => {
         return;
       }
     }
-    if (!archivoUrl) {
+    if (!archivoUrl && !diplomaId) {
       alert('El diploma aún no está disponible para descargar.');
       return;
     }
     const alumnoSafe = safeFilenamePart(alumnoNombre) || 'alumno';
     const cursoSafe = safeFilenamePart(cursoNombre) || 'curso';
-    const downloadFilename = `Diploma_${alumnoSafe}_${cursoSafe}.pdf`;
+    const ext = (archivoUrl || '').toLowerCase().includes('.jpg') ? 'jpg' : 'pdf';
+    const downloadFilename = `Diploma_${alumnoSafe}_${cursoSafe}.${ext}`;
     try {
       if (diplomaId) {
         const response = await diplomaService.descargarPdf(diplomaId);
-        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const contentType = response.headers?.['content-type'] || (ext === 'jpg' ? 'image/jpeg' : 'application/pdf');
+        const blob = new Blob([response.data], { type: contentType });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -418,6 +423,10 @@ const GestionarPromocion = () => {
       }
     } catch (err) {
       // Fallback to direct URL
+    }
+    if (!archivoUrl) {
+      alert('El diploma aún no está disponible para descargar.');
+      return;
     }
     const link = document.createElement('a');
     link.href = archivoUrl;

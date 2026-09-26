@@ -314,7 +314,9 @@ export const promedioService = {
 // Servicio de Diplomas
 export const diplomaService = {
   getAll: (promocionId) =>
-    api.get('/diplomas/', { params: promocionId ? { promocion: promocionId } : {} }),
+    api.get('/diplomas/', {
+      params: promocionId ? { promocion: promocionId, page_size: 500 } : { page_size: 500 },
+    }),
   getById: (id) => api.get(`/diplomas/${id}/`),
   generarDiplomas: (promocionId) =>
     api.post(
@@ -328,6 +330,7 @@ export const diplomaService = {
     api.get('/diplomas/descargar_zip/', {
       params: { promocion_id: promocionId },
       responseType: 'blob',
+      timeout: 300000,
     }),
 };
 

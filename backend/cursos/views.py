@@ -1174,7 +1174,7 @@ def _resolve_diploma_config(curso_nombre):
     """
     normalized = _normalize_course_name(curso_nombre)
     base = {
-        'template_filename': 'Diploma.pdf',
+        'template_filename': 'Diploma.jpg',
         'text_color': '#0d3b66',
         'font_size': 48,
         'max_width_ratio': 0.75,
@@ -1216,6 +1216,7 @@ def _draw_centered_text(overlay, text, y, font_name, font_size, color, width, ma
 
 
 _diploma_file_cache = {}
+_diploma_image_cache = {}
 
 
 def _cached_file_bytes(path):
@@ -1230,13 +1231,37 @@ def _cached_file_bytes(path):
     return data
 
 
-class _DiplomaPdfFactory:
-    """Genera varios diplomas reutilizando plantilla, sello y fuentes."""
+def _hex_to_rgb(value):
+    value = (value or '#000000').lstrip('#')
+    if len(value) != 6:
+        return (13, 59, 102)
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _load_truetype(path, size):
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(path, size=size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def _font_path(filename):
+    candidates = [
+        os.path.join(settings.BASE_DIR, 'cursos', 'assets', 'fonts', filename),
+        os.path.join(settings.MEDIA_ROOT, 'fonts', filename),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
+
+class _DiplomaImageFactory:
+    """Genera diplomas JPG rápidamente reutilizando plantilla, sello y fuentes."""
 
     def __init__(self, curso_nombre, fecha_otorgamiento=None):
-        from PyPDF2 import PdfReader
-        from reportlab.lib.colors import HexColor
-        from reportlab.lib.utils import ImageReader
+        from PIL import Image, ImageFont
 
         self.error = None
         self.config = _resolve_diploma_config(curso_nombre)
@@ -1247,114 +1272,132 @@ class _DiplomaPdfFactory:
         images_dir = _images_dir()
         template_path = os.path.join(images_dir, self.config['template_filename'])
         if not os.path.exists(template_path):
-            self.error = 'No se encontró la plantilla del diploma (Diploma.pdf).'
+            self.error = 'No se encontró la plantilla del diploma (Diploma.jpg).'
             return
 
-        self.template_bytes = _cached_file_bytes(template_path)
-        probe = PdfReader(io.BytesIO(self.template_bytes))
-        if not probe.pages:
-            self.error = 'La plantilla del diploma está vacía.'
-            return
+        mtime = os.path.getmtime(template_path)
+        cached = _diploma_image_cache.get(template_path)
+        if cached and cached[0] == mtime:
+            self.base_image = cached[1]
+        else:
+            self.base_image = Image.open(io.BytesIO(_cached_file_bytes(template_path))).convert('RGB')
+            _diploma_image_cache[template_path] = (mtime, self.base_image)
 
-        page = probe.pages[0]
-        self.width = float(page.mediabox.width)
-        self.height = float(page.mediabox.height)
-        self.color = HexColor(self.config['text_color'])
-        self.cm_to_pt = 72 / 2.54
-        self.baskerville = _get_baskerville_font(bold=False) or 'Times-Roman'
-        self.baskerville_bold = _get_baskerville_font(bold=True) or self.baskerville
-        self.brittany = _get_brittany_font(self.config['font_size']) or 'Helvetica'
+        self.width, self.height = self.base_image.size
+        # Escala respecto a A4 landscape en puntos PDF (~842 x 596)
+        self.scale = self.width / 842.25
+        self.color = _hex_to_rgb(self.config['text_color'])
         self.curso_display = _curso_nombre_diploma(curso_nombre)
         self.fecha_texto = _fecha_diploma_texto(fecha_otorgamiento)
         self.line1 = 'POR HABER CURSADO SATISFACTORIAMENTE LA ESCUELA DE'
         self.line2 = f'{self.curso_display}, SE LE OTORGA EL PRESENTE DIPLOMA A:'
 
+        baskerville_path = _font_path('LibreBaskerville-Regular.ttf')
+        baskerville_bold_path = _font_path('LibreBaskerville-Bold.ttf')
+        brittany_path = _font_path('Brittany.ttf')
+        body_size = max(12, int(round(self.config['body_font_size'] * self.scale)))
+        fecha_size = max(12, int(round(self.config['fecha_font_size'] * self.scale)))
+        name_size = max(28, int(round(self.config['font_size'] * self.scale)))
+
+        self.body_font = _load_truetype(baskerville_path, body_size) if baskerville_path else ImageFont.load_default()
+        self.fecha_font = (
+            _load_truetype(baskerville_bold_path, fecha_size)
+            if baskerville_bold_path else self.body_font
+        )
+        self.body_size = body_size
+        self.fecha_size = fecha_size
+        self.name_font_path = brittany_path
+        self.name_font_size = name_size
+
         self.seal_image = None
-        self.seal_box = None
+        self.seal_xy = None
         seal_filename = self.config.get('seal_filename')
         if seal_filename:
             seal_path = os.path.join(images_dir, seal_filename)
             if os.path.exists(seal_path):
-                seal_w = float(self.config.get('seal_width_pt', 95))
-                seal_h = seal_w * (559.0 / 447.0)
-                margin = float(self.config.get('seal_margin_cm', 1.5)) * self.cm_to_pt
-                self.seal_image = ImageReader(io.BytesIO(_cached_file_bytes(seal_path)))
-                self.seal_box = (
-                    self.width - margin - seal_w,
-                    self.height - margin - seal_h,
-                    seal_w,
-                    seal_h,
-                )
+                seal = Image.open(io.BytesIO(_cached_file_bytes(seal_path))).convert('RGBA')
+                seal_w = int(round(float(self.config.get('seal_width_pt', 95)) * self.scale))
+                seal_h = int(round(seal_w * (559.0 / 447.0)))
+                seal = seal.resize((seal_w, seal_h), Image.Resampling.LANCZOS)
+                margin = int(round(float(self.config.get('seal_margin_cm', 1.5)) * (72 / 2.54) * self.scale))
+                self.seal_image = seal
+                self.seal_xy = (self.width - margin - seal_w, margin)
+
+    def _fit_font(self, text, font_path, start_size, max_width):
+        from PIL import ImageFont
+        size = start_size
+        while size > 28:
+            font = _load_truetype(font_path, size) if font_path else ImageFont.load_default()
+            # textlength preferido; fallback bbox
+            try:
+                width = font.getlength(text)
+            except Exception:
+                bbox = font.getbbox(text)
+                width = bbox[2] - bbox[0]
+            if width <= max_width:
+                return font, width
+            size -= 2
+        font = _load_truetype(font_path, size) if font_path else ImageFont.load_default()
+        try:
+            width = font.getlength(text)
+        except Exception:
+            bbox = font.getbbox(text)
+            width = bbox[2] - bbox[0]
+        return font, width
+
+    def _draw_centered(self, draw, text, y, font, fill):
+        try:
+            text_w = font.getlength(text)
+        except Exception:
+            bbox = font.getbbox(text)
+            text_w = bbox[2] - bbox[0]
+        x = (self.width - text_w) / 2
+        draw.text((x, y), text, font=font, fill=fill)
 
     def generate(self, alumno_nombre):
         if self.error:
             return None, self.error
         try:
-            from PyPDF2 import PdfReader, PdfWriter
-            from reportlab.pdfgen import canvas
-            from reportlab.pdfbase import pdfmetrics
+            from PIL import Image, ImageDraw
         except ModuleNotFoundError:
-            return None, 'Faltan dependencias para generar PDFs (reportlab y PyPDF2).'
+            return None, 'Falta Pillow para generar diplomas JPG.'
 
-        reader = PdfReader(io.BytesIO(self.template_bytes))
-        base_page = reader.pages[0]
-        packet = io.BytesIO()
-        overlay = canvas.Canvas(packet, pagesize=(self.width, self.height))
+        img = self.base_image.copy()
+        if self.seal_image and self.seal_xy:
+            img.paste(self.seal_image, self.seal_xy, self.seal_image)
+        draw = ImageDraw.Draw(img)
 
-        if self.seal_image and self.seal_box:
-            seal_x, seal_y, seal_w, seal_h = self.seal_box
-            overlay.drawImage(
-                self.seal_image,
-                seal_x,
-                seal_y,
-                width=seal_w,
-                height=seal_h,
-                mask='auto',
-                preserveAspectRatio=True,
-                anchor='c',
-            )
+        # Origen Y en imagen es arriba; las ratios del PDF eran desde abajo.
+        y_line1 = self.height * (1 - self.config['body_line1_y_ratio']) - (self.body_size * 0.75)
+        y_line2 = self.height * (1 - self.config['body_line2_y_ratio']) - (self.body_size * 0.75)
+        self._draw_centered(draw, self.line1, y_line1, self.body_font, self.color)
+        self._draw_centered(draw, self.line2, y_line2, self.body_font, self.color)
 
-        _draw_centered_text(
-            overlay, self.line1, self.height * self.config['body_line1_y_ratio'],
-            self.baskerville, self.config['body_font_size'], self.color, self.width,
+        max_name_w = self.width * self.config['max_width_ratio']
+        name_font, name_w = self._fit_font(
+            alumno_nombre, self.name_font_path, self.name_font_size, max_name_w
         )
-        _draw_centered_text(
-            overlay, self.line2, self.height * self.config['body_line2_y_ratio'],
-            self.baskerville, self.config['body_font_size'], self.color, self.width,
-        )
+        name_size = getattr(name_font, 'size', self.name_font_size)
+        # PDF: nombre en height*0.54 - 2cm (desde abajo). Convertir a top-origin.
+        nombre_y_from_bottom = self.height * 0.54 - (2 * (72 / 2.54) * self.scale)
+        nombre_y = self.height - nombre_y_from_bottom - name_size
+        draw.text(((self.width - name_w) / 2, nombre_y), alumno_nombre, font=name_font, fill=self.color)
 
-        font_size = self.config['font_size']
-        font_name = self.brittany
-        max_text_width = self.width * self.config['max_width_ratio']
-        text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
-        while text_width > max_text_width and font_size > 28:
-            font_size -= 2
-            text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
-        overlay.setFillColor(self.color)
-        overlay.setFont(font_name, font_size)
-        nombre_y = self.height * 0.54 - (2 * self.cm_to_pt)
-        overlay.drawString((self.width - text_width) / 2, nombre_y, alumno_nombre)
+        y_fecha = self.height * (1 - self.config['fecha_y_ratio']) - (self.fecha_size * 0.75)
+        self._draw_centered(draw, self.fecha_texto, y_fecha, self.fecha_font, self.color)
 
-        _draw_centered_text(
-            overlay, self.fecha_texto, self.height * self.config['fecha_y_ratio'],
-            self.baskerville_bold, self.config['fecha_font_size'], self.color, self.width,
-        )
-
-        overlay.save()
-        packet.seek(0)
-        overlay_reader = PdfReader(packet)
-        base_page.merge_page(overlay_reader.pages[0])
-
-        writer = PdfWriter()
-        writer.add_page(base_page)
         output = io.BytesIO()
-        writer.write(output)
+        img.save(output, format='JPEG', quality=88, optimize=True)
         output.seek(0)
         return output, None
 
 
+# Compatibilidad con llamadas previas
+_DiplomaPdfFactory = _DiplomaImageFactory
+
+
 def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
-    factory = _DiplomaPdfFactory(curso_nombre, fecha_otorgamiento=fecha_otorgamiento)
+    factory = _DiplomaImageFactory(curso_nombre, fecha_otorgamiento=fecha_otorgamiento)
     return factory.generate(alumno_nombre)
 
 
@@ -1437,6 +1480,7 @@ class DiplomaViewSet(viewsets.ModelViewSet):
     queryset = Diploma.objects.select_related('inscripcion', 'inscripcion__alumno', 'inscripcion__promocion').all()
     serializer_class = DiplomaSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
     
     def get_queryset(self):
         user = self.request.user
@@ -1573,7 +1617,7 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 or promocion.fecha_actualizacion
                 or promocion.fecha_inicio
             )
-            pdf_factory = _DiplomaPdfFactory(
+            pdf_factory = _DiplomaImageFactory(
                 curso_nombre, fecha_otorgamiento=fecha_otorgamiento
             )
 
@@ -1603,31 +1647,29 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                     defaults={'activo': True}
                 )
                 # Regenerar siempre para aplicar plantilla/textos actualizados
-                pdf_buffer, error = pdf_factory.generate(alumno_nombre)
-                if pdf_buffer:
-                    filename = f"diploma_{diploma.codigo_diploma}.pdf"
+                img_buffer, error = pdf_factory.generate(alumno_nombre)
+                if img_buffer:
+                    filename = f"diploma_{diploma.codigo_diploma}.jpg"
                     if diploma.archivo:
                         diploma.archivo.delete(save=False)
-                    diploma.archivo.save(filename, ContentFile(pdf_buffer.read()), save=True)
+                    diploma.archivo.save(filename, ContentFile(img_buffer.read()), save=True)
                 elif error:
                     advertencias.append({
                         'alumno': alumno_nombre,
                         'curso': curso_nombre,
                         'detalle': error,
                     })
-                if created:
-                    diplomas_creados.append({
-                        'alumno': alumno_nombre,
-                        'codigo': diploma.codigo_diploma,
-                        'archivo': diploma.archivo.url if diploma.archivo else None,
-                        'creado': True,
-                    })
-                diplomas_resultados.append({
+                item = {
+                    'id': diploma.id,
+                    'inscripcion': promedio.inscripcion_id,
                     'alumno': alumno_nombre,
                     'codigo': diploma.codigo_diploma,
                     'archivo': diploma.archivo.url if diploma.archivo else None,
                     'creado': created,
-                })
+                }
+                if created:
+                    diplomas_creados.append(item)
+                diplomas_resultados.append(item)
 
             return Response({
                 'mensaje': f'Diplomas generados: {len(diplomas_creados)}',
