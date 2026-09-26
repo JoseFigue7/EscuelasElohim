@@ -1093,6 +1093,36 @@ def _normalize_course_name(name):
     return normalized
 
 
+def _curso_nombre_diploma(curso_nombre):
+    """Nombre del curso en mayúsculas para el texto del diploma (sin prefijo 'Escuela de')."""
+    name = (curso_nombre or '').strip()
+    if name.startswith('-'):
+        name = name.lstrip('-').strip()
+    lower = name.lower()
+    for prefix in ('escuela de ',):
+        if lower.startswith(prefix):
+            name = name[len(prefix):].strip()
+            break
+    return name.upper()
+
+
+MESES_ES = [
+    '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
+
+
+def _fecha_diploma_texto(fecha):
+    """Formato: Cobán, Alta Verapaz, {Mes} {Año}."""
+    from datetime import date
+    if fecha is None:
+        fecha = date.today()
+    if hasattr(fecha, 'date'):
+        fecha = fecha.date()
+    mes = MESES_ES[fecha.month] if 1 <= fecha.month <= 12 else ''
+    return f"Cobán, Alta Verapaz, {mes} {fecha.year}"
+
+
 def _get_brittany_font(font_size):
     try:
         from reportlab.pdfbase import pdfmetrics
@@ -1112,7 +1142,41 @@ def _get_brittany_font(font_size):
     return None
 
 
-def _generate_diploma_pdf(alumno_nombre, curso_nombre):
+def _get_baskerville_font(bold=False):
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+    except ModuleNotFoundError:
+        return None
+    filename = 'LibreBaskerville-Bold.ttf' if bold else 'LibreBaskerville-Regular.ttf'
+    font_name = 'LibreBaskerville-Bold' if bold else 'LibreBaskerville'
+    font_paths = [
+        os.path.join(settings.BASE_DIR, 'cursos', 'assets', 'fonts', filename),
+        os.path.join(settings.MEDIA_ROOT, 'fonts', filename),
+    ]
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            if font_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(font_name, font_path))
+            return font_name
+    return None
+
+
+def _draw_centered_text(overlay, text, y, font_name, font_size, color, width, max_width_ratio=0.78):
+    from reportlab.pdfbase import pdfmetrics
+    size = font_size
+    max_w = width * max_width_ratio
+    text_w = pdfmetrics.stringWidth(text, font_name, size)
+    while text_w > max_w and size > 9:
+        size -= 0.5
+        text_w = pdfmetrics.stringWidth(text, font_name, size)
+    overlay.setFillColor(color)
+    overlay.setFont(font_name, size)
+    overlay.drawString((width - text_w) / 2, y, text)
+    return size
+
+
+def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
     try:
         from PyPDF2 import PdfReader, PdfWriter
         from reportlab.pdfgen import canvas
@@ -1123,17 +1187,30 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre):
     template_map = {
         'escuela de corderitos': {
             'template_filename': 'Escuela de corderitos diploma.pdf',
-            'text_color': '#1f3b5a',
+            'text_color': '#0d3b66',
             'font_size': 48,
-            'y_ratio': 0.54,
+            # 2 cm más abajo respecto a la línea central original (~0.54)
+            'y_ratio': 0.445,
             'max_width_ratio': 0.75,
+            'body_line1_y_ratio': 0.674,
+            'body_line2_y_ratio': 0.641,
+            'body_font_size': 13.5,
+            'fecha_y_ratio': 0.270,
+            'fecha_font_size': 14,
         },
         'escuela de doctrina intermedia': {
             'template_filename': 'Diplomas Doctrina Intermedia.pdf',
-            'text_color': '#1f3b5a',
+            'text_color': '#0d3b66',
             'font_size': 48,
-            'y_ratio': 0.54,
+            # 2 cm más abajo respecto a la línea central original (~0.54)
+            'y_ratio': 0.445,
             'max_width_ratio': 0.75,
+            # Posiciones medidas sobre la plantilla Canva (A4 landscape 842.25 x 595.5)
+            'body_line1_y_ratio': 0.674,
+            'body_line2_y_ratio': 0.641,
+            'body_font_size': 13.5,
+            'fecha_y_ratio': 0.270,
+            'fecha_font_size': 14,
         },
     }
     normalized_course = _normalize_course_name(curso_nombre)
@@ -1158,7 +1235,28 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre):
     base_page = reader.pages[0]
     width = float(base_page.mediabox.width)
     height = float(base_page.mediabox.height)
+    color = HexColor(config['text_color'])
 
+    packet = io.BytesIO()
+    overlay = canvas.Canvas(packet, pagesize=(width, height))
+
+    # Texto central en Baskerville (encima del texto de la plantilla)
+    baskerville = _get_baskerville_font(bold=False) or 'Times-Roman'
+    baskerville_bold = _get_baskerville_font(bold=True) or baskerville
+    curso_display = _curso_nombre_diploma(curso_nombre)
+    line1 = 'POR HABER CURSADO SATISFACTORIAMENTE LA ESCUELA DE'
+    line2 = f'{curso_display}, SE LE OTORGA EL PRESENTE DIPLOMA A:'
+    _draw_centered_text(
+        overlay, line1, height * config['body_line1_y_ratio'],
+        baskerville, config['body_font_size'], color, width,
+    )
+    _draw_centered_text(
+        overlay, line2, height * config['body_line2_y_ratio'],
+        baskerville, config['body_font_size'], color, width,
+    )
+
+    # Nombre del alumno (Brittany), 2 cm más abajo que la línea base (~0.54)
+    CM_TO_PT = 72 / 2.54
     font_size = config['font_size']
     font_name = _get_brittany_font(font_size) or 'Helvetica'
     max_text_width = width * config['max_width_ratio']
@@ -1166,15 +1264,18 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre):
     while text_width > max_text_width and font_size > 28:
         font_size -= 2
         text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
-
-    x = (width - text_width) / 2
-    y = height * config['y_ratio']
-
-    packet = io.BytesIO()
-    overlay = canvas.Canvas(packet, pagesize=(width, height))
-    overlay.setFillColor(HexColor(config['text_color']))
+    overlay.setFillColor(color)
     overlay.setFont(font_name, font_size)
-    overlay.drawString(x, y, alumno_nombre)
+    nombre_y = height * 0.54 - (2 * CM_TO_PT)
+    overlay.drawString((width - text_width) / 2, nombre_y, alumno_nombre)
+
+    # Fecha / lugar abajo
+    fecha_texto = _fecha_diploma_texto(fecha_otorgamiento)
+    _draw_centered_text(
+        overlay, fecha_texto, height * config['fecha_y_ratio'],
+        baskerville_bold, config['fecha_font_size'], color, width,
+    )
+
     overlay.save()
 
     packet.seek(0)
@@ -1354,17 +1455,26 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                     or promedio.inscripcion.alumno.username
                 )
                 curso_nombre = promedio.inscripcion.promocion.curso.nombre
-                if created or not diploma.archivo:
-                    pdf_buffer, error = _generate_diploma_pdf(alumno_nombre, curso_nombre)
-                    if pdf_buffer:
-                        filename = f"diploma_{diploma.codigo_diploma}.pdf"
-                        diploma.archivo.save(filename, ContentFile(pdf_buffer.read()), save=True)
-                    elif error:
-                        advertencias.append({
-                            'alumno': alumno_nombre,
-                            'curso': curso_nombre,
-                            'detalle': error,
-                        })
+                fecha_otorgamiento = (
+                    promocion.fecha_fin
+                    or promocion.fecha_actualizacion
+                    or promocion.fecha_inicio
+                )
+                # Regenerar siempre para aplicar plantilla/textos actualizados
+                pdf_buffer, error = _generate_diploma_pdf(
+                    alumno_nombre, curso_nombre, fecha_otorgamiento=fecha_otorgamiento
+                )
+                if pdf_buffer:
+                    filename = f"diploma_{diploma.codigo_diploma}.pdf"
+                    if diploma.archivo:
+                        diploma.archivo.delete(save=False)
+                    diploma.archivo.save(filename, ContentFile(pdf_buffer.read()), save=True)
+                elif error:
+                    advertencias.append({
+                        'alumno': alumno_nombre,
+                        'curso': curso_nombre,
+                        'detalle': error,
+                    })
                 if created:
                     diplomas_creados.append({
                         'alumno': alumno_nombre,

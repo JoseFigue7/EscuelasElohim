@@ -589,11 +589,12 @@ const GestionarPromocion = () => {
   };
 
   const handleFinalizarPromocion = async () => {
-    if (!window.confirm('¿Estás seguro de finalizar esta promoción? Esto la marcará como inactiva.')) {
+    if (!window.confirm('¿Estás seguro de finalizar esta promoción? Se guardará la fecha de hoy para los diplomas y se marcará como inactiva.')) {
       return;
     }
     try {
-      await promocionService.update(id, { activa: false });
+      const hoy = new Date().toISOString().split('T')[0];
+      await promocionService.update(id, { activa: false, fecha_fin: hoy });
       loadData();
       alert('Promoción finalizada correctamente');
     } catch (err) {
