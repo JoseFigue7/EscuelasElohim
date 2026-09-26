@@ -453,7 +453,7 @@ class PromedioPromocion(models.Model):
             suma += float(calificacion.porcentaje) if calificacion else 0.0
 
         self.promedio_final = Decimal(suma / total_examenes)
-        self.aprobado = float(self.promedio_final) >= 80.0
+        self.aprobado = float(self.promedio_final) >= 70.0
         self.save()
 
     def obtener_detalle_notas(self):
@@ -501,7 +501,7 @@ class PromedioPromocion(models.Model):
             'promocion_nombre': self.inscripcion.promocion.nombre,
             'curso_nombre': self.inscripcion.promocion.curso.nombre,
             'promedio_final': promedio,
-            'aprobado': promedio >= 80.0,
+            'aprobado': promedio >= 70.0,
             'total_examenes': total,
             'notas': notas,
         }

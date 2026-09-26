@@ -39,7 +39,7 @@ const Calificaciones = () => {
       <h1>Mis Calificaciones</h1>
       <p className="calificaciones-intro">
         Promedio sobre todos los exámenes del curso. Si no presentaste un examen, cuenta como 0%.
-        El curso se aprueba con promedio ≥ 80%.
+        El curso se aprueba con promedio ≥ 70%.
       </p>
 
       {cursos.length === 0 ? (

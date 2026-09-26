@@ -143,7 +143,7 @@ class PromocionViewSet(viewsets.ModelViewSet):
 
             if porcentajes:
                 promedio = round(sum(porcentajes) / len(porcentajes), 2)
-                estado = 'Aprobado' if promedio >= 80 else 'Reprobado'
+                estado = 'Aprobado' if promedio >= 70 else 'Reprobado'
             else:
                 promedio = 0
                 estado = 'Reprobado' if temas else ''
@@ -1437,7 +1437,7 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 )
                 promedio.calcular_promedio()
 
-            # Obtener inscripciones con promedio aprobado (>= 80%)
+            # Obtener inscripciones con promedio aprobado (>= 70%)
             promedios = PromedioPromocion.objects.filter(
                 inscripcion__promocion_id=promocion_id,
                 aprobado=True

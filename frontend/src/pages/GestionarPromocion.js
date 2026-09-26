@@ -328,7 +328,7 @@ const GestionarPromocion = () => {
       const totalConArchivo = diplomasRespuesta.filter((item) => item?.archivo).length;
       if (creados === 0) {
         if (totalAprobados === 0) {
-          setDiplomaInfo('No hay alumnos aprobados (>= 80%) para generar diplomas.');
+          setDiplomaInfo('No hay alumnos aprobados (>= 70%) para generar diplomas.');
         } else if (totalConArchivo > 0) {
           setDiplomaInfo(
             `Ya existen ${totalConArchivo} diplomas generados. Se iniciará la descarga.`
@@ -432,7 +432,7 @@ const GestionarPromocion = () => {
   const handleDescargarDiplomasMasivo = async () => {
     const aprobados = filasPromedios.filter(({ promedio }) => Boolean(promedio?.aprobado));
     if (aprobados.length === 0) {
-      alert('No hay alumnos aprobados (>= 80%) para descargar diplomas.');
+      alert('No hay alumnos aprobados (>= 70%) para descargar diplomas.');
       return;
     }
     if (aprobados.length === 1) {
@@ -1310,7 +1310,7 @@ const GestionarPromocion = () => {
           <p className="info-text">
             El promedio se calcula con <strong>todos los exámenes del curso</strong>.
             Si un alumno no presentó un examen, esa nota cuenta como <strong>0%</strong>.
-            Quienes tengan promedio ≥ 80% se consideran aprobados y pueden recibir diploma.
+            Quienes tengan promedio ≥ 70% se consideran aprobados y pueden recibir diploma.
           </p>
           {diplomaWarnings.length > 0 && (
             <div className="info-text" style={{ color: '#9c6b00' }}>
@@ -1369,7 +1369,7 @@ const GestionarPromocion = () => {
                       const aprobado = Number.isFinite(promedioFinalValue)
                         ? (typeof promedio?.aprobado === 'boolean'
                             ? promedio.aprobado
-                            : promedioFinalValue >= 80)
+                            : promedioFinalValue >= 70)
                         : false;
                       const puedeDescargar = aprobado;
 

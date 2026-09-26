@@ -146,7 +146,7 @@ const PromocionDetail = () => {
             <strong>Tu promedio del curso:</strong>{' '}
             {Number(promedioInfo.promedio_final).toFixed(2)}%
             {' · '}
-            {promedioInfo.aprobado ? 'Aprobado' : 'Aún no alcanza 80%'}
+            {promedioInfo.aprobado ? 'Aprobado' : 'Aún no alcanza 70%'}
           </div>
           <Link to="/calificaciones" className="link-notas">
             Ver todas mis notas →
