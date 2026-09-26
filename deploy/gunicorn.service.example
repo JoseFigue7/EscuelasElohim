@@ -26,12 +26,14 @@ Environment=DJANGO_ENV_FILE=/etc/elohimcoban.env
 EnvironmentFile=/etc/elohimcoban.env
 ExecStart=__REPO__/backend/venv/bin/gunicorn \
     --workers 3 \
+    --timeout 300 \
+    --graceful-timeout 60 \
     --bind unix:/run/gunicorn/elohimcoban.sock \
     --umask 007 \
     elohimcoban.wsgi:application
 ExecReload=/bin/kill -s HUP $MAINPID
 KillMode=mixed
-TimeoutStopSec=5
+TimeoutStopSec=120
 PrivateTmp=true
 Restart=on-failure
 

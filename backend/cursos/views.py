@@ -1215,51 +1215,96 @@ def _draw_centered_text(overlay, text, y, font_name, font_size, color, width, ma
     return size
 
 
-def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
-    try:
-        from PyPDF2 import PdfReader, PdfWriter
-        from reportlab.pdfgen import canvas
+_diploma_file_cache = {}
+
+
+def _cached_file_bytes(path):
+    """Lee un archivo en memoria y lo reutiliza mientras no cambie en disco."""
+    mtime = os.path.getmtime(path)
+    cached = _diploma_file_cache.get(path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    with open(path, 'rb') as fh:
+        data = fh.read()
+    _diploma_file_cache[path] = (mtime, data)
+    return data
+
+
+class _DiplomaPdfFactory:
+    """Genera varios diplomas reutilizando plantilla, sello y fuentes."""
+
+    def __init__(self, curso_nombre, fecha_otorgamiento=None):
+        from PyPDF2 import PdfReader
         from reportlab.lib.colors import HexColor
-        from reportlab.pdfbase import pdfmetrics
         from reportlab.lib.utils import ImageReader
-    except ModuleNotFoundError:
-        return None, 'Faltan dependencias para generar PDFs (reportlab y PyPDF2).'
 
-    config = _resolve_diploma_config(curso_nombre)
-    if not config:
-        return None, 'No hay plantilla configurada para este curso.'
+        self.error = None
+        self.config = _resolve_diploma_config(curso_nombre)
+        if not self.config:
+            self.error = 'No hay plantilla configurada para este curso.'
+            return
 
-    images_dir = _images_dir()
-    template_path = os.path.join(images_dir, config['template_filename'])
-    if not os.path.exists(template_path):
-        return None, 'No se encontró la plantilla del diploma (Diploma.pdf).'
+        images_dir = _images_dir()
+        template_path = os.path.join(images_dir, self.config['template_filename'])
+        if not os.path.exists(template_path):
+            self.error = 'No se encontró la plantilla del diploma (Diploma.pdf).'
+            return
 
-    reader = PdfReader(template_path)
-    if not reader.pages:
-        return None, 'La plantilla del diploma está vacía.'
+        self.template_bytes = _cached_file_bytes(template_path)
+        probe = PdfReader(io.BytesIO(self.template_bytes))
+        if not probe.pages:
+            self.error = 'La plantilla del diploma está vacía.'
+            return
 
-    base_page = reader.pages[0]
-    width = float(base_page.mediabox.width)
-    height = float(base_page.mediabox.height)
-    color = HexColor(config['text_color'])
-    CM_TO_PT = 72 / 2.54
+        page = probe.pages[0]
+        self.width = float(page.mediabox.width)
+        self.height = float(page.mediabox.height)
+        self.color = HexColor(self.config['text_color'])
+        self.cm_to_pt = 72 / 2.54
+        self.baskerville = _get_baskerville_font(bold=False) or 'Times-Roman'
+        self.baskerville_bold = _get_baskerville_font(bold=True) or self.baskerville
+        self.brittany = _get_brittany_font(self.config['font_size']) or 'Helvetica'
+        self.curso_display = _curso_nombre_diploma(curso_nombre)
+        self.fecha_texto = _fecha_diploma_texto(fecha_otorgamiento)
+        self.line1 = 'POR HABER CURSADO SATISFACTORIAMENTE LA ESCUELA DE'
+        self.line2 = f'{self.curso_display}, SE LE OTORGA EL PRESENTE DIPLOMA A:'
 
-    packet = io.BytesIO()
-    overlay = canvas.Canvas(packet, pagesize=(width, height))
+        self.seal_image = None
+        self.seal_box = None
+        seal_filename = self.config.get('seal_filename')
+        if seal_filename:
+            seal_path = os.path.join(images_dir, seal_filename)
+            if os.path.exists(seal_path):
+                seal_w = float(self.config.get('seal_width_pt', 95))
+                seal_h = seal_w * (559.0 / 447.0)
+                margin = float(self.config.get('seal_margin_cm', 1.5)) * self.cm_to_pt
+                self.seal_image = ImageReader(io.BytesIO(_cached_file_bytes(seal_path)))
+                self.seal_box = (
+                    self.width - margin - seal_w,
+                    self.height - margin - seal_h,
+                    seal_w,
+                    seal_h,
+                )
 
-    # Sello del curso (esquina superior derecha)
-    seal_filename = config.get('seal_filename')
-    if seal_filename:
-        seal_path = os.path.join(images_dir, seal_filename)
-        if os.path.exists(seal_path):
-            seal_w = float(config.get('seal_width_pt', 95))
-            # Mantener proporción del PNG (447x559)
-            seal_h = seal_w * (559.0 / 447.0)
-            margin = float(config.get('seal_margin_cm', 1.5)) * CM_TO_PT
-            seal_x = width - margin - seal_w
-            seal_y = height - margin - seal_h
+    def generate(self, alumno_nombre):
+        if self.error:
+            return None, self.error
+        try:
+            from PyPDF2 import PdfReader, PdfWriter
+            from reportlab.pdfgen import canvas
+            from reportlab.pdfbase import pdfmetrics
+        except ModuleNotFoundError:
+            return None, 'Faltan dependencias para generar PDFs (reportlab y PyPDF2).'
+
+        reader = PdfReader(io.BytesIO(self.template_bytes))
+        base_page = reader.pages[0]
+        packet = io.BytesIO()
+        overlay = canvas.Canvas(packet, pagesize=(self.width, self.height))
+
+        if self.seal_image and self.seal_box:
+            seal_x, seal_y, seal_w, seal_h = self.seal_box
             overlay.drawImage(
-                ImageReader(seal_path),
+                self.seal_image,
                 seal_x,
                 seal_y,
                 width=seal_w,
@@ -1269,54 +1314,123 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
                 anchor='c',
             )
 
-    # Texto central en Baskerville
-    baskerville = _get_baskerville_font(bold=False) or 'Times-Roman'
-    baskerville_bold = _get_baskerville_font(bold=True) or baskerville
-    curso_display = _curso_nombre_diploma(curso_nombre)
-    line1 = 'POR HABER CURSADO SATISFACTORIAMENTE LA ESCUELA DE'
-    line2 = f'{curso_display}, SE LE OTORGA EL PRESENTE DIPLOMA A:'
-    _draw_centered_text(
-        overlay, line1, height * config['body_line1_y_ratio'],
-        baskerville, config['body_font_size'], color, width,
-    )
-    _draw_centered_text(
-        overlay, line2, height * config['body_line2_y_ratio'],
-        baskerville, config['body_font_size'], color, width,
-    )
+        _draw_centered_text(
+            overlay, self.line1, self.height * self.config['body_line1_y_ratio'],
+            self.baskerville, self.config['body_font_size'], self.color, self.width,
+        )
+        _draw_centered_text(
+            overlay, self.line2, self.height * self.config['body_line2_y_ratio'],
+            self.baskerville, self.config['body_font_size'], self.color, self.width,
+        )
 
-    # Nombre del alumno (Brittany), 2 cm más abajo que la línea base (~0.54)
-    font_size = config['font_size']
-    font_name = _get_brittany_font(font_size) or 'Helvetica'
-    max_text_width = width * config['max_width_ratio']
-    text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
-    while text_width > max_text_width and font_size > 28:
-        font_size -= 2
+        font_size = self.config['font_size']
+        font_name = self.brittany
+        max_text_width = self.width * self.config['max_width_ratio']
         text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
-    overlay.setFillColor(color)
-    overlay.setFont(font_name, font_size)
-    nombre_y = height * 0.54 - (2 * CM_TO_PT)
-    overlay.drawString((width - text_width) / 2, nombre_y, alumno_nombre)
+        while text_width > max_text_width and font_size > 28:
+            font_size -= 2
+            text_width = pdfmetrics.stringWidth(alumno_nombre, font_name, font_size)
+        overlay.setFillColor(self.color)
+        overlay.setFont(font_name, font_size)
+        nombre_y = self.height * 0.54 - (2 * self.cm_to_pt)
+        overlay.drawString((self.width - text_width) / 2, nombre_y, alumno_nombre)
 
-    # Fecha / lugar abajo
-    fecha_texto = _fecha_diploma_texto(fecha_otorgamiento)
-    _draw_centered_text(
-        overlay, fecha_texto, height * config['fecha_y_ratio'],
-        baskerville_bold, config['fecha_font_size'], color, width,
+        _draw_centered_text(
+            overlay, self.fecha_texto, self.height * self.config['fecha_y_ratio'],
+            self.baskerville_bold, self.config['fecha_font_size'], self.color, self.width,
+        )
+
+        overlay.save()
+        packet.seek(0)
+        overlay_reader = PdfReader(packet)
+        base_page.merge_page(overlay_reader.pages[0])
+
+        writer = PdfWriter()
+        writer.add_page(base_page)
+        output = io.BytesIO()
+        writer.write(output)
+        output.seek(0)
+        return output, None
+
+
+def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
+    factory = _DiplomaPdfFactory(curso_nombre, fecha_otorgamiento=fecha_otorgamiento)
+    return factory.generate(alumno_nombre)
+
+
+def _recalcular_promedios_promocion(promocion):
+    """Recalcula promedios de una promoción en pocas consultas (sin N+1)."""
+    from collections import defaultdict
+    from decimal import Decimal
+    from django.utils import timezone
+
+    examenes = list(Examen.objects.filter(tema__curso=promocion.curso))
+    total_examenes = len(examenes)
+    inscripciones = list(
+        Inscripcion.objects.filter(promocion=promocion, activa=True).only('id')
     )
+    if total_examenes == 0 or not inscripciones:
+        return total_examenes
 
-    overlay.save()
+    insc_ids = [insc.id for insc in inscripciones]
+    by_key = defaultdict(list)
+    for cal in CalificacionExamen.objects.filter(
+        inscripcion_id__in=insc_ids,
+        examen_id__in=[e.id for e in examenes],
+    ):
+        by_key[(cal.inscripcion_id, cal.examen_id)].append(cal)
 
-    packet.seek(0)
-    overlay_reader = PdfReader(packet)
-    base_page.merge_page(overlay_reader.pages[0])
+    umbrales = {
+        examen.id: CalificacionExamen.umbral_aprobacion_examen(examen)
+        for examen in examenes
+    }
 
-    writer = PdfWriter()
-    writer.add_page(base_page)
+    def efectiva(inscripcion_id, examen):
+        cals = by_key.get((inscripcion_id, examen.id), [])
+        if not cals:
+            return None
+        umbral = umbrales[examen.id]
+        aprobadas = [c for c in cals if float(c.porcentaje) >= umbral]
+        if aprobadas:
+            return max(aprobadas, key=lambda c: (float(c.porcentaje), c.fecha_completado))
+        return max(cals, key=lambda c: c.fecha_completado)
 
-    output = io.BytesIO()
-    writer.write(output)
-    output.seek(0)
-    return output, None
+    existentes = {
+        p.inscripcion_id: p
+        for p in PromedioPromocion.objects.filter(inscripcion_id__in=insc_ids)
+    }
+    ahora = timezone.now()
+    to_create = []
+    to_update = []
+    for insc in inscripciones:
+        suma = 0.0
+        for examen in examenes:
+            cal = efectiva(insc.id, examen)
+            suma += float(cal.porcentaje) if cal else 0.0
+        promedio_final = Decimal(suma / total_examenes).quantize(Decimal('0.01'))
+        aprobado = float(promedio_final) >= 70.0
+        actual = existentes.get(insc.id)
+        if actual is None:
+            to_create.append(
+                PromedioPromocion(
+                    inscripcion_id=insc.id,
+                    promedio_final=promedio_final,
+                    aprobado=aprobado,
+                )
+            )
+        else:
+            actual.promedio_final = promedio_final
+            actual.aprobado = aprobado
+            actual.fecha_calculo = ahora
+            to_update.append(actual)
+
+    if to_create:
+        PromedioPromocion.objects.bulk_create(to_create)
+    if to_update:
+        PromedioPromocion.objects.bulk_update(
+            to_update, ['promedio_final', 'aprobado', 'fecha_calculo']
+        )
+    return total_examenes
 
 
 class DiplomaViewSet(viewsets.ModelViewSet):
@@ -1420,8 +1534,11 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         try:
-            promocion = get_object_or_404(Promocion, id=promocion_id)
-            total_examenes = Examen.objects.filter(tema__curso=promocion.curso).count()
+            promocion = get_object_or_404(
+                Promocion.objects.select_related('curso'),
+                id=promocion_id,
+            )
+            total_examenes = _recalcular_promedios_promocion(promocion)
             if total_examenes == 0:
                 return Response({
                     'mensaje': 'No hay exámenes configurados para este curso.',
@@ -1429,18 +1546,15 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                     'advertencias': [],
                 })
 
-            # Recalcular promedios antes de evaluar aprobados
-            inscripciones = Inscripcion.objects.filter(promocion=promocion, activa=True)
-            for inscripcion in inscripciones:
-                promedio, _created = PromedioPromocion.objects.get_or_create(
-                    inscripcion=inscripcion
-                )
-                promedio.calcular_promedio()
-
             # Obtener inscripciones con promedio aprobado (>= 70%)
-            promedios = PromedioPromocion.objects.filter(
-                inscripcion__promocion_id=promocion_id,
-                aprobado=True
+            promedios = list(
+                PromedioPromocion.objects.filter(
+                    inscripcion__promocion_id=promocion_id,
+                    aprobado=True,
+                ).select_related(
+                    'inscripcion__alumno',
+                    'inscripcion__promocion__curso',
+                )
             )
 
             completados_por_inscripcion = {
@@ -1452,20 +1566,30 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 .values('inscripcion_id')
                 .annotate(examenes_completados=Count('examen', distinct=True))
             }
-            
+
+            curso_nombre = promocion.curso.nombre
+            fecha_otorgamiento = (
+                promocion.fecha_fin
+                or promocion.fecha_actualizacion
+                or promocion.fecha_inicio
+            )
+            pdf_factory = _DiplomaPdfFactory(
+                curso_nombre, fecha_otorgamiento=fecha_otorgamiento
+            )
+
             diplomas_creados = []
             diplomas_resultados = []
             advertencias = []
             for promedio in promedios:
                 completados = completados_por_inscripcion.get(promedio.inscripcion_id, 0)
+                alumno_nombre = (
+                    promedio.inscripcion.alumno.get_full_name()
+                    or promedio.inscripcion.alumno.username
+                )
                 if completados < total_examenes:
-                    alumno_nombre = (
-                        promedio.inscripcion.alumno.get_full_name()
-                        or promedio.inscripcion.alumno.username
-                    )
                     advertencias.append({
                         'alumno': alumno_nombre,
-                        'curso': promedio.inscripcion.promocion.curso.nombre,
+                        'curso': curso_nombre,
                         'detalle': (
                             f'No ha completado todos los exámenes '
                             f'({completados}/{total_examenes}).'
@@ -1478,20 +1602,8 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                     inscripcion=promedio.inscripcion,
                     defaults={'activo': True}
                 )
-                alumno_nombre = (
-                    promedio.inscripcion.alumno.get_full_name()
-                    or promedio.inscripcion.alumno.username
-                )
-                curso_nombre = promedio.inscripcion.promocion.curso.nombre
-                fecha_otorgamiento = (
-                    promocion.fecha_fin
-                    or promocion.fecha_actualizacion
-                    or promocion.fecha_inicio
-                )
                 # Regenerar siempre para aplicar plantilla/textos actualizados
-                pdf_buffer, error = _generate_diploma_pdf(
-                    alumno_nombre, curso_nombre, fecha_otorgamiento=fecha_otorgamiento
-                )
+                pdf_buffer, error = pdf_factory.generate(alumno_nombre)
                 if pdf_buffer:
                     filename = f"diploma_{diploma.codigo_diploma}.pdf"
                     if diploma.archivo:
@@ -1516,7 +1628,7 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                     'archivo': diploma.archivo.url if diploma.archivo else None,
                     'creado': created,
                 })
-            
+
             return Response({
                 'mensaje': f'Diplomas generados: {len(diplomas_creados)}',
                 'diplomas': diplomas_resultados,

@@ -316,8 +316,12 @@ export const diplomaService = {
   getAll: (promocionId) =>
     api.get('/diplomas/', { params: promocionId ? { promocion: promocionId } : {} }),
   getById: (id) => api.get(`/diplomas/${id}/`),
-  generarDiplomas: (promocionId) => 
-    api.post('/diplomas/generar_diplomas/', { promocion_id: promocionId }),
+  generarDiplomas: (promocionId) =>
+    api.post(
+      '/diplomas/generar_diplomas/',
+      { promocion_id: promocionId },
+      { timeout: 300000 }
+    ),
   descargarPdf: (id) =>
     api.get(`/diplomas/${id}/`, { params: { download: 'true' }, responseType: 'blob' }),
   descargarZip: (promocionId) =>
