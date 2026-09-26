@@ -458,6 +458,8 @@ const GestionarPromocion = () => {
       return;
     }
     try {
+      // Generar faltantes primero; el ZIP del backend también regenera por seguridad
+      await generarDiplomasPromocion({ showAlert: false });
       const response = await diplomaService.descargarZip(id);
       const blob = new Blob([response.data], { type: 'application/zip' });
       const url = window.URL.createObjectURL(blob);

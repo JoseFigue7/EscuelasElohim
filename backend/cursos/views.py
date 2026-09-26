@@ -1476,6 +1476,93 @@ def _recalcular_promedios_promocion(promocion):
     return total_examenes
 
 
+def _generar_diplomas_para_promocion(promocion):
+    """
+    Genera/regenera diplomas JPG para aprobados (>=70%) que completaron todos los exámenes.
+    Retorna (diplomas_resultados, diplomas_creados, advertencias, total_examenes).
+    """
+    from datetime import date as date_cls
+
+    total_examenes = _recalcular_promedios_promocion(promocion)
+    if total_examenes == 0:
+        return [], [], [], 0
+
+    promedios = list(
+        PromedioPromocion.objects.filter(
+            inscripcion__promocion=promocion,
+            aprobado=True,
+        ).select_related(
+            'inscripcion__alumno',
+            'inscripcion__promocion__curso',
+        )
+    )
+
+    completados_por_inscripcion = {
+        item['inscripcion_id']: item['examenes_completados']
+        for item in CalificacionExamen.objects.filter(
+            inscripcion__promocion=promocion,
+            examen__tema__curso=promocion.curso,
+        )
+        .values('inscripcion_id')
+        .annotate(examenes_completados=Count('examen', distinct=True))
+    }
+
+    curso_nombre = promocion.curso.nombre
+    fecha_otorgamiento = date_cls.today()
+    factory = _DiplomaImageFactory(curso_nombre, fecha_otorgamiento=fecha_otorgamiento)
+
+    diplomas_creados = []
+    diplomas_resultados = []
+    advertencias = []
+    for promedio in promedios:
+        completados = completados_por_inscripcion.get(promedio.inscripcion_id, 0)
+        alumno_nombre = (
+            promedio.inscripcion.alumno.get_full_name()
+            or promedio.inscripcion.alumno.username
+        )
+        if completados < total_examenes:
+            advertencias.append({
+                'alumno': alumno_nombre,
+                'curso': curso_nombre,
+                'detalle': (
+                    f'No ha completado todos los exámenes '
+                    f'({completados}/{total_examenes}).'
+                ),
+            })
+            continue
+
+        diploma, created = Diploma.objects.get_or_create(
+            inscripcion=promedio.inscripcion,
+            defaults={'activo': True},
+        )
+        img_buffer, error = factory.generate(alumno_nombre)
+        if img_buffer:
+            filename = f"diploma_{diploma.codigo_diploma}.jpg"
+            if diploma.archivo:
+                diploma.archivo.delete(save=False)
+            diploma.archivo.save(filename, ContentFile(img_buffer.read()), save=True)
+        elif error:
+            advertencias.append({
+                'alumno': alumno_nombre,
+                'curso': curso_nombre,
+                'detalle': error,
+            })
+
+        item = {
+            'id': diploma.id,
+            'inscripcion': promedio.inscripcion_id,
+            'alumno': alumno_nombre,
+            'codigo': diploma.codigo_diploma,
+            'archivo': diploma.archivo.url if diploma.archivo else None,
+            'creado': created,
+        }
+        if created:
+            diplomas_creados.append(item)
+        diplomas_resultados.append(item)
+
+    return diplomas_resultados, diplomas_creados, advertencias, total_examenes
+
+
 class DiplomaViewSet(viewsets.ModelViewSet):
     queryset = Diploma.objects.select_related('inscripcion', 'inscripcion__alumno', 'inscripcion__promocion').all()
     serializer_class = DiplomaSerializer
@@ -1524,26 +1611,39 @@ class DiplomaViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def descargar_zip(self, request):
-        """Descargar diplomas de una promoción en un ZIP"""
+        """Genera diplomas faltantes y descarga ZIP de la promoción."""
         promocion_id = request.query_params.get('promocion_id') or request.query_params.get('promocion')
         if not promocion_id:
             return Response({'error': 'promocion_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
-        promocion = get_object_or_404(Promocion, id=promocion_id)
+        promocion = get_object_or_404(
+            Promocion.objects.select_related('curso'),
+            id=promocion_id,
+        )
+        # Asegurar que existan todos los archivos antes de empaquetar
+        _generar_diplomas_para_promocion(promocion)
+
         diplomas = (
-            self.get_queryset()
-            .filter(inscripcion__promocion_id=promocion_id)
+            Diploma.objects.filter(inscripcion__promocion_id=promocion_id)
             .select_related('inscripcion__alumno', 'inscripcion__promocion__curso')
         )
 
         zip_buffer = io.BytesIO()
         added = 0
         import zipfile
+        import re
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for diploma in diplomas:
                 if diploma.archivo and os.path.exists(diploma.archivo.path):
-                    filename = os.path.basename(diploma.archivo.name)
-                    zip_file.write(diploma.archivo.path, arcname=filename)
+                    alumno = (
+                        diploma.inscripcion.alumno.get_full_name()
+                        or diploma.inscripcion.alumno.username
+                        or 'alumno'
+                    )
+                    safe_alumno = re.sub(r'[^A-Za-z0-9_-]+', '_', alumno).strip('_')[:80] or 'alumno'
+                    ext = os.path.splitext(diploma.archivo.name)[1] or '.jpg'
+                    arcname = f'Diploma_{safe_alumno}_{diploma.codigo_diploma}{ext}'
+                    zip_file.write(diploma.archivo.path, arcname=arcname)
                     added += 1
 
         if added == 0:
@@ -1582,91 +1682,15 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 Promocion.objects.select_related('curso'),
                 id=promocion_id,
             )
-            total_examenes = _recalcular_promedios_promocion(promocion)
+            diplomas_resultados, diplomas_creados, advertencias, total_examenes = (
+                _generar_diplomas_para_promocion(promocion)
+            )
             if total_examenes == 0:
                 return Response({
                     'mensaje': 'No hay exámenes configurados para este curso.',
                     'diplomas': [],
                     'advertencias': [],
                 })
-
-            # Obtener inscripciones con promedio aprobado (>= 70%)
-            promedios = list(
-                PromedioPromocion.objects.filter(
-                    inscripcion__promocion_id=promocion_id,
-                    aprobado=True,
-                ).select_related(
-                    'inscripcion__alumno',
-                    'inscripcion__promocion__curso',
-                )
-            )
-
-            completados_por_inscripcion = {
-                item['inscripcion_id']: item['examenes_completados']
-                for item in CalificacionExamen.objects.filter(
-                    inscripcion__promocion_id=promocion_id,
-                    examen__tema__curso=promocion.curso
-                )
-                .values('inscripcion_id')
-                .annotate(examenes_completados=Count('examen', distinct=True))
-            }
-
-            curso_nombre = promocion.curso.nombre
-            from datetime import date as date_cls
-            fecha_otorgamiento = date_cls.today()  # fecha de exportación/generación
-            pdf_factory = _DiplomaImageFactory(
-                curso_nombre, fecha_otorgamiento=fecha_otorgamiento
-            )
-
-            diplomas_creados = []
-            diplomas_resultados = []
-            advertencias = []
-            for promedio in promedios:
-                completados = completados_por_inscripcion.get(promedio.inscripcion_id, 0)
-                alumno_nombre = (
-                    promedio.inscripcion.alumno.get_full_name()
-                    or promedio.inscripcion.alumno.username
-                )
-                if completados < total_examenes:
-                    advertencias.append({
-                        'alumno': alumno_nombre,
-                        'curso': curso_nombre,
-                        'detalle': (
-                            f'No ha completado todos los exámenes '
-                            f'({completados}/{total_examenes}).'
-                        ),
-                    })
-                    continue
-
-                # Verificar si ya tiene diploma
-                diploma, created = Diploma.objects.get_or_create(
-                    inscripcion=promedio.inscripcion,
-                    defaults={'activo': True}
-                )
-                # Regenerar siempre para aplicar plantilla/textos actualizados
-                img_buffer, error = pdf_factory.generate(alumno_nombre)
-                if img_buffer:
-                    filename = f"diploma_{diploma.codigo_diploma}.jpg"
-                    if diploma.archivo:
-                        diploma.archivo.delete(save=False)
-                    diploma.archivo.save(filename, ContentFile(img_buffer.read()), save=True)
-                elif error:
-                    advertencias.append({
-                        'alumno': alumno_nombre,
-                        'curso': curso_nombre,
-                        'detalle': error,
-                    })
-                item = {
-                    'id': diploma.id,
-                    'inscripcion': promedio.inscripcion_id,
-                    'alumno': alumno_nombre,
-                    'codigo': diploma.codigo_diploma,
-                    'archivo': diploma.archivo.url if diploma.archivo else None,
-                    'creado': created,
-                }
-                if created:
-                    diplomas_creados.append(item)
-                diplomas_resultados.append(item)
 
             return Response({
                 'mensaje': f'Diplomas generados: {len(diplomas_creados)}',
