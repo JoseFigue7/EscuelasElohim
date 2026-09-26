@@ -1162,6 +1162,45 @@ def _get_baskerville_font(bold=False):
     return None
 
 
+def _images_dir():
+    return os.path.join(settings.BASE_DIR.parent, 'frontend', 'public', 'images')
+
+
+def _resolve_diploma_config(curso_nombre):
+    """
+    Plantilla única Diploma.pdf + sello según curso.
+    - Escuela de Corderitos → Corderitos.png
+    - Doctrina Intermedia (o Intermedia 2) → Intermedia.png
+    """
+    normalized = _normalize_course_name(curso_nombre)
+    base = {
+        'template_filename': 'Diploma.pdf',
+        'text_color': '#0d3b66',
+        'font_size': 48,
+        'max_width_ratio': 0.75,
+        # Posiciones medidas sobre plantilla A4 landscape (842.25 x 595.5)
+        'body_line1_y_ratio': 0.674,
+        'body_line2_y_ratio': 0.641,
+        'body_font_size': 13.5,
+        'fecha_y_ratio': 0.270,
+        'fecha_font_size': 14,
+        # Sello: esquina superior derecha, ~1.5 cm de margen
+        'seal_margin_cm': 1.5,
+        'seal_width_pt': 95,
+        'seal_filename': None,
+    }
+    if 'corderitos' in normalized:
+        base['seal_filename'] = 'Corderitos.png'
+        return base
+    if 'intermedia' in normalized:
+        base['seal_filename'] = 'Intermedia.png'
+        return base
+    if 'evangelismo' in normalized:
+        # Misma plantilla; sin sello específico por ahora
+        return base
+    return None
+
+
 def _draw_centered_text(overlay, text, y, font_name, font_size, color, width, max_width_ratio=0.78):
     from reportlab.pdfbase import pdfmetrics
     size = font_size
@@ -1182,51 +1221,18 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
         from reportlab.pdfgen import canvas
         from reportlab.lib.colors import HexColor
         from reportlab.pdfbase import pdfmetrics
+        from reportlab.lib.utils import ImageReader
     except ModuleNotFoundError:
         return None, 'Faltan dependencias para generar PDFs (reportlab y PyPDF2).'
-    template_map = {
-        'escuela de corderitos': {
-            'template_filename': 'Escuela de corderitos diploma.pdf',
-            'text_color': '#0d3b66',
-            'font_size': 48,
-            # 2 cm más abajo respecto a la línea central original (~0.54)
-            'y_ratio': 0.445,
-            'max_width_ratio': 0.75,
-            'body_line1_y_ratio': 0.674,
-            'body_line2_y_ratio': 0.641,
-            'body_font_size': 13.5,
-            'fecha_y_ratio': 0.270,
-            'fecha_font_size': 14,
-        },
-        'escuela de doctrina intermedia': {
-            'template_filename': 'Diplomas Doctrina Intermedia.pdf',
-            'text_color': '#0d3b66',
-            'font_size': 48,
-            # 2 cm más abajo respecto a la línea central original (~0.54)
-            'y_ratio': 0.445,
-            'max_width_ratio': 0.75,
-            # Posiciones medidas sobre la plantilla Canva (A4 landscape 842.25 x 595.5)
-            'body_line1_y_ratio': 0.674,
-            'body_line2_y_ratio': 0.641,
-            'body_font_size': 13.5,
-            'fecha_y_ratio': 0.270,
-            'fecha_font_size': 14,
-        },
-    }
-    normalized_course = _normalize_course_name(curso_nombre)
-    if normalized_course not in template_map:
+
+    config = _resolve_diploma_config(curso_nombre)
+    if not config:
         return None, 'No hay plantilla configurada para este curso.'
 
-    config = template_map[normalized_course]
-    template_path = os.path.join(
-        settings.BASE_DIR.parent,
-        'frontend',
-        'public',
-        'images',
-        config['template_filename'],
-    )
+    images_dir = _images_dir()
+    template_path = os.path.join(images_dir, config['template_filename'])
     if not os.path.exists(template_path):
-        return None, 'No se encontró la plantilla del diploma.'
+        return None, 'No se encontró la plantilla del diploma (Diploma.pdf).'
 
     reader = PdfReader(template_path)
     if not reader.pages:
@@ -1236,11 +1242,34 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
     width = float(base_page.mediabox.width)
     height = float(base_page.mediabox.height)
     color = HexColor(config['text_color'])
+    CM_TO_PT = 72 / 2.54
 
     packet = io.BytesIO()
     overlay = canvas.Canvas(packet, pagesize=(width, height))
 
-    # Texto central en Baskerville (encima del texto de la plantilla)
+    # Sello del curso (esquina superior derecha)
+    seal_filename = config.get('seal_filename')
+    if seal_filename:
+        seal_path = os.path.join(images_dir, seal_filename)
+        if os.path.exists(seal_path):
+            seal_w = float(config.get('seal_width_pt', 95))
+            # Mantener proporción del PNG (447x559)
+            seal_h = seal_w * (559.0 / 447.0)
+            margin = float(config.get('seal_margin_cm', 1.5)) * CM_TO_PT
+            seal_x = width - margin - seal_w
+            seal_y = height - margin - seal_h
+            overlay.drawImage(
+                ImageReader(seal_path),
+                seal_x,
+                seal_y,
+                width=seal_w,
+                height=seal_h,
+                mask='auto',
+                preserveAspectRatio=True,
+                anchor='c',
+            )
+
+    # Texto central en Baskerville
     baskerville = _get_baskerville_font(bold=False) or 'Times-Roman'
     baskerville_bold = _get_baskerville_font(bold=True) or baskerville
     curso_display = _curso_nombre_diploma(curso_nombre)
@@ -1256,7 +1285,6 @@ def _generate_diploma_pdf(alumno_nombre, curso_nombre, fecha_otorgamiento=None):
     )
 
     # Nombre del alumno (Brittany), 2 cm más abajo que la línea base (~0.54)
-    CM_TO_PT = 72 / 2.54
     font_size = config['font_size']
     font_name = _get_brittany_font(font_size) or 'Helvetica'
     max_text_width = width * config['max_width_ratio']
