@@ -1113,14 +1113,14 @@ MESES_ES = [
 
 
 def _fecha_diploma_texto(fecha):
-    """Formato: Cobán, Alta Verapaz, {día} de {Mes} de {Año} (fecha de fin de la promoción)."""
+    """Formato: Cobán, Alta Verapaz, {Mes} {Año} (fecha de exportación/generación)."""
     from datetime import date
     if fecha is None:
         fecha = date.today()
     if hasattr(fecha, 'date'):
         fecha = fecha.date()
     mes = MESES_ES[fecha.month] if 1 <= fecha.month <= 12 else ''
-    return f"Cobán, Alta Verapaz, {fecha.day} de {mes} de {fecha.year}"
+    return f"Cobán, Alta Verapaz, {mes} {fecha.year}"
 
 
 def _get_brittany_font(font_size):
@@ -1378,8 +1378,8 @@ class _DiplomaImageFactory:
             alumno_nombre, self.name_font_path, self.name_font_size, max_name_w
         )
         name_size = getattr(name_font, 'size', self.name_font_size)
-        # PDF: nombre en height*0.54 - 0.7cm (subido 1.5cm del original -2cm, luego +0.2cm abajo).
-        nombre_y_from_bottom = self.height * 0.54 - (0.7 * (72 / 2.54) * self.scale)
+        # PDF: nombre en height*0.54 - 0.8cm (+0.1cm abajo respecto a la última posición).
+        nombre_y_from_bottom = self.height * 0.54 - (0.8 * (72 / 2.54) * self.scale)
         nombre_y = self.height - nombre_y_from_bottom - name_size
         draw.text(((self.width - name_w) / 2, nombre_y), alumno_nombre, font=name_font, fill=self.color)
 
@@ -1612,11 +1612,8 @@ class DiplomaViewSet(viewsets.ModelViewSet):
             }
 
             curso_nombre = promocion.curso.nombre
-            fecha_otorgamiento = (
-                promocion.fecha_fin
-                or promocion.fecha_actualizacion
-                or promocion.fecha_inicio
-            )
+            from datetime import date as date_cls
+            fecha_otorgamiento = date_cls.today()  # fecha de exportación/generación
             pdf_factory = _DiplomaImageFactory(
                 curso_nombre, fecha_otorgamiento=fecha_otorgamiento
             )
