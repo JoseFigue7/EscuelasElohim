@@ -1168,7 +1168,7 @@ def _images_dir():
 
 def _resolve_diploma_config(curso_nombre):
     """
-    Plantilla única Diploma.pdf + sello según curso.
+    Plantilla única Diploma.jpg + sello según curso.
     - Escuela de Corderitos → Corderitos.png
     - Doctrina Intermedia (o Intermedia 2) → Intermedia.png
     """
@@ -1189,7 +1189,7 @@ def _resolve_diploma_config(curso_nombre):
         'seal_width_pt': 120,
         'seal_filename': None,
     }
-    if 'corderitos' in normalized:
+    if 'corderito' in normalized:
         base['seal_filename'] = 'Corderitos.png'
         return base
     if 'intermedia' in normalized:
@@ -1478,7 +1478,7 @@ def _recalcular_promedios_promocion(promocion):
 
 def _generar_diplomas_para_promocion(promocion):
     """
-    Genera/regenera diplomas JPG para aprobados (>=70%) que completaron todos los exámenes.
+    Regenera TODOS los diplomas JPG de aprobados (>=70%) con la plantilla/sello actuales.
     Retorna (diplomas_resultados, diplomas_creados, advertencias, total_examenes).
     """
     from datetime import date as date_cls
@@ -1510,6 +1510,12 @@ def _generar_diplomas_para_promocion(promocion):
     curso_nombre = promocion.curso.nombre
     fecha_otorgamiento = date_cls.today()
     factory = _DiplomaImageFactory(curso_nombre, fecha_otorgamiento=fecha_otorgamiento)
+    if factory.error:
+        return [], [], [{
+            'alumno': '-',
+            'curso': curso_nombre,
+            'detalle': factory.error,
+        }], total_examenes
 
     diplomas_creados = []
     diplomas_resultados = []
@@ -1525,16 +1531,16 @@ def _generar_diplomas_para_promocion(promocion):
                 'alumno': alumno_nombre,
                 'curso': curso_nombre,
                 'detalle': (
-                    f'No ha completado todos los exámenes '
-                    f'({completados}/{total_examenes}).'
+                    f'Exámenes incompletos ({completados}/{total_examenes}); '
+                    f'se genera diploma igual por promedio aprobado.'
                 ),
             })
-            continue
 
         diploma, created = Diploma.objects.get_or_create(
             inscripcion=promedio.inscripcion,
             defaults={'activo': True},
         )
+        # Siempre regenerar: plantilla, sello, nombre y fecha actuales
         img_buffer, error = factory.generate(alumno_nombre)
         if img_buffer:
             filename = f"diploma_{diploma.codigo_diploma}.jpg"

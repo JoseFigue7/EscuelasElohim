@@ -458,7 +458,7 @@ const GestionarPromocion = () => {
       return;
     }
     try {
-      // Generar faltantes primero; el ZIP del backend también regenera por seguridad
+      // Regenera TODOS los diplomas con plantilla/sello actuales; luego descarga el ZIP
       await generarDiplomasPromocion({ showAlert: false });
       const response = await diplomaService.descargarZip(id);
       const blob = new Blob([response.data], { type: 'application/zip' });
