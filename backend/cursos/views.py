@@ -1186,7 +1186,7 @@ def _resolve_diploma_config(curso_nombre):
         'fecha_font_size': 14,
         # Sello: esquina superior derecha, ~1.5 cm de margen
         'seal_margin_cm': 1.5,
-        'seal_width_pt': 95,
+        'seal_width_pt': 120,
         'seal_filename': None,
     }
     if 'corderitos' in normalized:
@@ -1378,8 +1378,8 @@ class _DiplomaImageFactory:
             alumno_nombre, self.name_font_path, self.name_font_size, max_name_w
         )
         name_size = getattr(name_font, 'size', self.name_font_size)
-        # PDF: nombre en height*0.54 - 2cm (desde abajo). Convertir a top-origin.
-        nombre_y_from_bottom = self.height * 0.54 - (2 * (72 / 2.54) * self.scale)
+        # PDF: nombre en height*0.54 - 0.5cm (antes -2cm; subido 1.5cm). Convertir a top-origin.
+        nombre_y_from_bottom = self.height * 0.54 - (0.5 * (72 / 2.54) * self.scale)
         nombre_y = self.height - nombre_y_from_bottom - name_size
         draw.text(((self.width - name_w) / 2, nombre_y), alumno_nombre, font=name_font, fill=self.color)
 
