@@ -1113,14 +1113,14 @@ MESES_ES = [
 
 
 def _fecha_diploma_texto(fecha):
-    """Formato: Cobán, Alta Verapaz, {Mes} {Año}."""
+    """Formato: Cobán, Alta Verapaz, {día} de {Mes} de {Año} (fecha de fin de la promoción)."""
     from datetime import date
     if fecha is None:
         fecha = date.today()
     if hasattr(fecha, 'date'):
         fecha = fecha.date()
     mes = MESES_ES[fecha.month] if 1 <= fecha.month <= 12 else ''
-    return f"Cobán, Alta Verapaz, {mes} {fecha.year}"
+    return f"Cobán, Alta Verapaz, {fecha.day} de {mes} de {fecha.year}"
 
 
 def _get_brittany_font(font_size):
