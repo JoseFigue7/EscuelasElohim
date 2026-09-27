@@ -1218,6 +1218,53 @@ def _draw_centered_text(overlay, text, y, font_name, font_size, color, width, ma
 _diploma_file_cache = {}
 _diploma_image_cache = {}
 
+# Carta (US Letter) apaisada: 11" x 8.5" @ 200 DPI → página completa al imprimir
+LETTER_LANDSCAPE_INCH = (11.0, 8.5)
+LETTER_LANDSCAPE_DPI = 200
+LETTER_LANDSCAPE_PX = (
+    int(LETTER_LANDSCAPE_INCH[0] * LETTER_LANDSCAPE_DPI),
+    int(LETTER_LANDSCAPE_INCH[1] * LETTER_LANDSCAPE_DPI),
+)
+
+
+def _fit_to_letter_landscape(img):
+    """
+    Expande la imagen para llenar una hoja Carta horizontal (sin franjas en blanco).
+    Estira al tamaño exacto de la página.
+    """
+    from PIL import Image
+    target = LETTER_LANDSCAPE_PX
+    if img.size == target:
+        return img.convert('RGB') if img.mode != 'RGB' else img
+    return img.convert('RGB').resize(target, Image.Resampling.LANCZOS)
+
+
+def _build_letter_pdf_from_images(images):
+    """PDF multipágina Carta apaisada; cada imagen llena la hoja completa."""
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.pdfgen import canvas as pdf_canvas
+    from reportlab.lib.utils import ImageReader
+
+    page_size = landscape(letter)  # (792, 612) puntos
+    pdf_buffer = io.BytesIO()
+    c = pdf_canvas.Canvas(pdf_buffer, pagesize=page_size)
+    page_w, page_h = page_size
+    for img in images:
+        fitted = _fit_to_letter_landscape(img)
+        c.drawImage(
+            ImageReader(fitted),
+            0,
+            0,
+            width=page_w,
+            height=page_h,
+            preserveAspectRatio=False,
+            anchor='c',
+        )
+        c.showPage()
+    c.save()
+    pdf_buffer.seek(0)
+    return pdf_buffer
+
 
 def _cached_file_bytes(path):
     """Lee un archivo en memoria y lo reutiliza mientras no cambie en disco."""
@@ -1386,8 +1433,11 @@ class _DiplomaImageFactory:
         y_fecha = self.height * (1 - self.config['fecha_y_ratio']) - (self.fecha_size * 0.75)
         self._draw_centered(draw, self.fecha_texto, y_fecha, self.fecha_font, self.color)
 
+        # Expandir a hoja Carta horizontal (llena la página al imprimir)
+        img = _fit_to_letter_landscape(img)
+
         output = io.BytesIO()
-        img.save(output, format='JPEG', quality=88, optimize=True)
+        img.save(output, format='JPEG', quality=90, optimize=True)
         output.seek(0)
         return output, None
 
@@ -1655,7 +1705,7 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 continue
             try:
                 img = Image.open(diploma.archivo.path).convert('RGB')
-                pages.append(img)
+                pages.append(_fit_to_letter_landscape(img))
             except Exception:
                 continue
 
@@ -1665,16 +1715,13 @@ class DiplomaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        pdf_buffer = io.BytesIO()
-        first, rest = pages[0], pages[1:]
-        first.save(
-            pdf_buffer,
-            format='PDF',
-            save_all=True,
-            append_images=rest,
-            resolution=150.0,
-        )
-        pdf_buffer.seek(0)
+        try:
+            pdf_buffer = _build_letter_pdf_from_images(pages)
+        except Exception as exc:
+            return Response(
+                {'error': f'Error al armar el PDF: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         from django.http import HttpResponse
         from urllib.parse import quote
