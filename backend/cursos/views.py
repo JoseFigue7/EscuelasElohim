@@ -1218,9 +1218,9 @@ def _draw_centered_text(overlay, text, y, font_name, font_size, color, width, ma
 _diploma_file_cache = {}
 _diploma_image_cache = {}
 
-# Carta (US Letter) apaisada: 11" x 8.5" @ 200 DPI → página completa al imprimir
+# Carta (US Letter) apaisada: 11" x 8.5" @ 150 DPI (buen equilibrio calidad/tamaño para imprimir)
 LETTER_LANDSCAPE_INCH = (11.0, 8.5)
-LETTER_LANDSCAPE_DPI = 200
+LETTER_LANDSCAPE_DPI = 150
 LETTER_LANDSCAPE_PX = (
     int(LETTER_LANDSCAPE_INCH[0] * LETTER_LANDSCAPE_DPI),
     int(LETTER_LANDSCAPE_INCH[1] * LETTER_LANDSCAPE_DPI),
@@ -1240,7 +1240,7 @@ def _fit_to_letter_landscape(img):
 
 
 def _build_letter_pdf_from_images(images):
-    """PDF multipágina Carta apaisada; cada imagen llena la hoja completa."""
+    """PDF multipágina Carta apaisada; cada imagen llena la hoja completa (JPEG comprimido)."""
     from reportlab.lib.pagesizes import letter, landscape
     from reportlab.pdfgen import canvas as pdf_canvas
     from reportlab.lib.utils import ImageReader
@@ -1251,8 +1251,12 @@ def _build_letter_pdf_from_images(images):
     page_w, page_h = page_size
     for img in images:
         fitted = _fit_to_letter_landscape(img)
+        # Comprimir a JPEG para que el PDF no pese decenas de MB
+        jpg_buf = io.BytesIO()
+        fitted.save(jpg_buf, format='JPEG', quality=82, optimize=True)
+        jpg_buf.seek(0)
         c.drawImage(
-            ImageReader(fitted),
+            ImageReader(jpg_buf),
             0,
             0,
             width=page_w,

@@ -458,10 +458,27 @@ const GestionarPromocion = () => {
       return;
     }
     try {
-      // Regenera TODOS los diplomas con plantilla/sello actuales; luego descarga el ZIP
-      await generarDiplomasPromocion({ showAlert: false });
+      // Un solo request: el backend regenera y entrega PDF Carta (no ZIP)
       const response = await diplomaService.descargarZip(id);
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const raw = response.data;
+      const header = raw instanceof Blob
+        ? await raw.slice(0, 5).text()
+        : String.fromCharCode(...new Uint8Array(raw).slice(0, 5));
+      if (!header.startsWith('%PDF')) {
+        let detail = 'El servidor no devolvió un PDF válido.';
+        try {
+          const text = raw instanceof Blob ? await raw.text() : new TextDecoder().decode(raw);
+          const parsed = JSON.parse(text);
+          if (parsed?.error || parsed?.detail) detail = parsed.error || parsed.detail;
+        } catch (e) {
+          // ignore
+        }
+        alert(detail);
+        return;
+      }
+      const blob = raw instanceof Blob
+        ? raw
+        : new Blob([raw], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -476,15 +493,15 @@ const GestionarPromocion = () => {
         try {
           const text = await err.response.data.text();
           const parsed = JSON.parse(text);
-          if (parsed?.error) {
-            alert(parsed.error);
+          if (parsed?.error || parsed?.detail) {
+            alert(parsed.error || parsed.detail);
             return;
           }
         } catch (parseError) {
           // Ignore parse errors and fallback to generic message
         }
       }
-      alert('No se pudo descargar el ZIP de diplomas.');
+      alert('No se pudo descargar el PDF de diplomas.');
       return;
     }
   };
