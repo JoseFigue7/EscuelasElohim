@@ -39,10 +39,20 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return { success: true, user: userData };
     } catch (error) {
-      const detail =
-        error.response?.data?.detail ||
-        error.response?.data?.error ||
+      const data = error.response?.data;
+      let detail =
+        data?.detail ||
+        data?.error ||
         (error.response ? 'Error al iniciar sesión' : 'No se pudo conectar al servidor');
+      // DRF a veces devuelve {detail: ["..."]} o {non_field_errors: [...]}
+      if (Array.isArray(detail)) {
+        detail = detail[0];
+      } else if (detail && typeof detail === 'object') {
+        detail = Object.values(detail).flat()[0] || 'Error al iniciar sesión';
+      }
+      if (Array.isArray(data?.non_field_errors)) {
+        detail = data.non_field_errors[0];
+      }
       return {
         success: false,
         error: detail,

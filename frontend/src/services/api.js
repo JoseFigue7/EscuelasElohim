@@ -33,9 +33,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config || {};
+    const requestUrl = originalRequest.url || '';
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // No intentar refresh en login/refresh/restablecer: el 401 es la respuesta real
+    const isAuthEndpoint =
+      requestUrl.includes('/auth/login/') ||
+      requestUrl.includes('/auth/refresh/') ||
+      requestUrl.includes('/auth/restablecer-contrasena/');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
@@ -47,6 +54,7 @@ api.interceptors.response.use(
 
           const { access } = response.data;
           localStorage.setItem('access_token', access);
+          originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${access}`;
           return api(originalRequest);
         }

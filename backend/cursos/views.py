@@ -1617,7 +1617,10 @@ class DiplomaViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def descargar_zip(self, request):
-        """Genera diplomas faltantes y descarga ZIP de la promoción."""
+        """
+        Regenera todos los diplomas y descarga un único PDF multipágina
+        (un diploma por página) listo para imprimir.
+        """
         promocion_id = request.query_params.get('promocion_id') or request.query_params.get('promocion')
         if not promocion_id:
             return Response({'error': 'promocion_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1626,51 +1629,65 @@ class DiplomaViewSet(viewsets.ModelViewSet):
             Promocion.objects.select_related('curso'),
             id=promocion_id,
         )
-        # Asegurar que existan todos los archivos antes de empaquetar
         _generar_diplomas_para_promocion(promocion)
 
         diplomas = (
             Diploma.objects.filter(inscripcion__promocion_id=promocion_id)
             .select_related('inscripcion__alumno', 'inscripcion__promocion__curso')
+            .order_by(
+                'inscripcion__alumno__last_name',
+                'inscripcion__alumno__first_name',
+                'inscripcion__alumno__username',
+            )
         )
 
-        zip_buffer = io.BytesIO()
-        added = 0
-        import zipfile
-        import re
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            for diploma in diplomas:
-                if diploma.archivo and os.path.exists(diploma.archivo.path):
-                    alumno = (
-                        diploma.inscripcion.alumno.get_full_name()
-                        or diploma.inscripcion.alumno.username
-                        or 'alumno'
-                    )
-                    safe_alumno = re.sub(r'[^A-Za-z0-9_-]+', '_', alumno).strip('_')[:80] or 'alumno'
-                    ext = os.path.splitext(diploma.archivo.name)[1] or '.jpg'
-                    arcname = f'Diploma_{safe_alumno}_{diploma.codigo_diploma}{ext}'
-                    zip_file.write(diploma.archivo.path, arcname=arcname)
-                    added += 1
-
-        if added == 0:
+        try:
+            from PIL import Image
+        except ModuleNotFoundError:
             return Response(
-                {'error': 'No hay diplomas disponibles para descargar'},
-                status=status.HTTP_404_NOT_FOUND
+                {'error': 'Falta Pillow para generar el PDF de diplomas.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        zip_buffer.seek(0)
+        pages = []
+        for diploma in diplomas:
+            if not diploma.archivo or not os.path.exists(diploma.archivo.path):
+                continue
+            try:
+                img = Image.open(diploma.archivo.path).convert('RGB')
+                pages.append(img)
+            except Exception:
+                continue
+
+        if not pages:
+            return Response(
+                {'error': 'No hay diplomas disponibles para descargar'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        pdf_buffer = io.BytesIO()
+        first, rest = pages[0], pages[1:]
+        first.save(
+            pdf_buffer,
+            format='PDF',
+            save_all=True,
+            append_images=rest,
+            resolution=150.0,
+        )
+        pdf_buffer.seek(0)
+
         from django.http import HttpResponse
         from urllib.parse import quote
 
         base_name = promocion.nombre or f'promocion_{promocion_id}'
         safe_name = ''.join(ch if ch.isalnum() or ch in ('-', '_') else '_' for ch in base_name)
         safe_name = safe_name.strip('_') or f'promocion_{promocion_id}'
-        zip_filename = f'Diplomas_{safe_name}.zip'
-        zip_filename_encoded = quote(zip_filename, safe='')
+        pdf_filename = f'Diplomas_{safe_name}.pdf'
+        pdf_filename_encoded = quote(pdf_filename, safe='')
 
-        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = (
-            f'attachment; filename="{zip_filename}"; filename*=UTF-8\'\'{zip_filename_encoded}'
+            f'attachment; filename="{pdf_filename}"; filename*=UTF-8\'\'{pdf_filename_encoded}'
         )
         return response
     

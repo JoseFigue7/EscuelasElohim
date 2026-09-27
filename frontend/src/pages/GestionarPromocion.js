@@ -461,12 +461,12 @@ const GestionarPromocion = () => {
       // Regenera TODOS los diplomas con plantilla/sello actuales; luego descarga el ZIP
       await generarDiplomasPromocion({ showAlert: false });
       const response = await diplomaService.descargarZip(id);
-      const blob = new Blob([response.data], { type: 'application/zip' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       const promocionSafe = safeFilenamePart(promocion?.nombre) || `promocion_${id}`;
-      link.download = `Diplomas_${promocionSafe}.zip`;
+      link.download = `Diplomas_${promocionSafe}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -1,5 +1,7 @@
-from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from rest_framework import serializers
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import Usuario
 
 
@@ -10,6 +12,33 @@ class UsuarioSerializer(serializers.ModelSerializer):
                   'tipo', 'telefono', 'fecha_nacimiento', 'direccion', 
                   'activo', 'debe_cambiar_password', 'fecha_creacion']
         read_only_fields = ['id', 'fecha_creacion', 'username', 'tipo', 'activo', 'debe_cambiar_password']
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Login case-insensitive y mensajes claros (respeta is_active y activo)."""
+
+    def validate(self, attrs):
+        username = (attrs.get(self.username_field) or '').strip()
+        password = attrs.get('password') or ''
+
+        try:
+            user = Usuario.objects.get(username__iexact=username)
+        except Usuario.DoesNotExist:
+            raise AuthenticationFailed('Usuario o contraseña incorrectos.')
+
+        if not user.check_password(password):
+            raise AuthenticationFailed('Usuario o contraseña incorrectos.')
+
+        if not user.is_active or not getattr(user, 'activo', True):
+            raise AuthenticationFailed(
+                'Tu cuenta está inactiva. Contacta al administrador.'
+            )
+
+        refresh = self.get_token(user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
 
 
 class UsuarioCreateSerializer(serializers.ModelSerializer):
@@ -42,4 +71,3 @@ class UsuarioCreateSerializer(serializers.ModelSerializer):
         user.debe_cambiar_password = True
         user.save()
         return user
-
